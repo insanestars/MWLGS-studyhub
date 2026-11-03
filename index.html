@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Study Hub</title>
+  <meta name="description" content="Essay timing, reasoning practice and progress tracking for entrance exam prep.">
+  <meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f6bed'/%3E%3Cpath d='M18 46V18h18a8 8 0 010 16H24m8 0l10 12' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Apply saved theme before paint to avoid a flash.
+    try { const t = localStorage.getItem("studyhub:theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#essay" aria-label="Study Hub home">
+      <span class="logo" aria-hidden="true">S</span><span>Study Hub</span>
+    </a>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#essay" data-tab="essay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg><span>Essay</span></a>
+      <a href="#reasoning" data-tab="reasoning"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0012 3z"/></svg><span>Reasoning</span></a>
+      <a href="#progress" data-tab="progress"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Progress</span></a>
+    </nav>
+    <div class="top-actions">
+      <span id="streakChip" class="chip streak" title="Daily streak" hidden>🔥 <b>0</b></span>
+      <button id="themeBtn" class="icon-btn" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></svg>
+      </button>
+      <button id="accountBtn" class="icon-btn avatar" aria-label="Account" title="Account">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Sign-in screen -->
+  <section id="login" class="login" hidden>
+    <div class="card login-card">
+      <span class="logo big" aria-hidden="true">S</span>
+      <h1>Study Hub</h1>
+      <p class="muted">Essay timer, reasoning practice and progress — synced across your phone and laptop.</p>
+      <button id="googleBtn" class="btn google">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6A14.5 14.5 0 019.5 24c0-1.6.3-3.2.8-4.6l-7.9-6.1A24 24 0 000 24c0 3.9.9 7.5 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+        Sign in with Google
+      </button>
+      <button id="guestBtn" class="btn ghost">Continue without signing in</button>
+      <p class="tiny muted">Without signing in, progress is saved on this device only.</p>
+      <p id="loginError" class="error" hidden></p>
+    </div>
+  </section>
+
+  <main id="app" hidden>
+    <!-- ───────────────────────── ESSAY ───────────────────────── -->
+    <section id="essay" class="view" data-view="essay">
+      <div id="essaySetup">
+        <h1>Essay practice</h1>
+        <p class="muted">40 minutes, on paper. Pick a type and get two prompts to choose from.</p>
+        <div class="card">
+          <div class="segmented" role="radiogroup" aria-label="Essay type">
+            <button role="radio" data-etype="narrative" aria-checked="true">Narrative</button>
+            <button role="radio" data-etype="argumentative" aria-checked="false">Argumentative</button>
+            <button role="radio" data-etype="surprise" aria-checked="false">Surprise me</button>
+          </div>
+          <button id="essayStartBtn" class="btn primary wide">Start</button>
+        </div>
+
+        <div id="promptChoice" hidden>
+          <div class="row between">
+            <h2>Choose one prompt</h2>
+            <button id="rerollBtn" class="btn small ghost">↻ New pair</button>
+          </div>
+          <div id="promptCards" class="prompt-grid"></div>
+        </div>
+
+        <div class="row between history-head">
+          <h2>Essay log</h2>
+          <select id="historyFilter" aria-label="Filter essay log">
+            <option value="all">All</option>
+            <option value="narrative">Narrative</option>
+            <option value="argumentative">Argumentative</option>
+          </select>
+        </div>
+        <div id="essayHistory" class="history"></div>
+      </div>
+
+      <!-- Timer -->
+      <div id="essayTimer" class="timer-screen" hidden>
+        <div class="timer-top">
+          <span id="timerType" class="badge"></span>
+          <span id="timerPhase" class="phase">Plan</span>
+        </div>
+        <p id="timerPrompt" class="timer-prompt"></p>
+        <div id="timerClock" class="clock" role="timer" aria-live="off">40:00</div>
+        <div class="bar" aria-hidden="true"><div id="timerBar"></div>
+          <i style="left:12.5%" title="35 min"></i><i style="left:75%" title="10 min"></i><i style="left:87.5%" title="5 min"></i>
+        </div>
+        <div id="timerAlert" class="timer-alert" role="status" aria-live="assertive" hidden></div>
+        <div class="timer-controls">
+          <button id="pauseBtn" class="btn primary">Start timer</button>
+          <button id="fsBtn" class="btn ghost" title="Full screen">⛶ Full screen</button>
+          <button id="soundBtn" class="btn ghost" aria-pressed="true">🔔 Sound on</button>
+          <button id="finishBtn" class="btn ghost">Finish</button>
+          <button id="quitBtn" class="btn ghost danger-text">Quit</button>
+        </div>
+        <p class="tiny muted hint">Alerts at 35 min left (start writing), 10 min and 5 min (start concluding).</p>
+      </div>
+
+      <!-- Self-check -->
+      <div id="essayCheck" hidden>
+        <h1>Time! Self-check</h1>
+        <p id="checkPrompt" class="muted"></p>
+        <div class="card">
+          <h2 id="checkTitle">Checklist</h2>
+          <div id="checklist" class="checklist"></div>
+          <p class="score-line">Score: <b id="checkScore">0 / 5</b></p>
+        </div>
+        <div class="card">
+          <h2>Notes <span class="muted tiny">(optional)</span></h2>
+          <div id="quickTags" class="tags"></div>
+          <textarea id="essayNotes" rows="3" placeholder="e.g. ran out of time, weak ending, good counterargument…"></textarea>
+        </div>
+        <div class="row gap">
+          <button id="saveEssayBtn" class="btn primary">Save to log</button>
+          <button id="discardEssayBtn" class="btn ghost">Discard</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── REASONING ───────────────────────── -->
+    <section id="reasoning" class="view" data-view="reasoning" hidden>
+      <div id="rsMenu">
+        <h1>Reasoning practice</h1>
+        <p class="muted">Fresh puzzles every time — number &amp; letter series, analogies, odd one out and shape patterns.</p>
+        <div class="mode-grid">
+          <button class="card mode" data-mode="timed">
+            <span class="mode-icon">⏱</span><b>Timed round</b><span class="muted">10 questions · 5 minutes</span>
+          </button>
+          <button class="card mode" data-mode="practice">
+            <span class="mode-icon">∞</span><b>Untimed practice</b><span class="muted">As many as you like</span>
+          </button>
+          <button class="card mode" data-mode="review" id="reviewModeBtn">
+            <span class="mode-icon">↺</span><b>Review my mistakes</b><span class="muted" id="mistakeCount">0 saved</span>
+          </button>
+        </div>
+        <div class="card">
+          <h2>Practice focus</h2>
+          <p class="tiny muted">For untimed practice: choose which puzzle types to include.</p>
+          <div id="typeFilter" class="tags"></div>
+        </div>
+      </div>
+
+      <div id="rsPlay" hidden>
+        <div class="row between rs-head">
+          <span id="rsProgress" class="badge"></span>
+          <span id="rsTimer" class="rs-timer"></span>
+          <button id="rsEndBtn" class="btn small ghost">End</button>
+        </div>
+        <div class="card question">
+          <span id="rsType" class="tiny muted upper"></span>
+          <h2 id="rsQuestion"></h2>
+          <div id="rsDisplay" class="display"></div>
+          <div id="rsOptions" class="options"></div>
+          <div id="rsFeedback" class="feedback" hidden></div>
+          <button id="rsNextBtn" class="btn primary wide" hidden>Next →</button>
+        </div>
+        <p class="tiny muted center hide-touch">Tip: press 1–4 to answer, Enter for next.</p>
+      </div>
+
+      <div id="rsResult" hidden>
+        <h1 id="rsResultTitle">Round complete</h1>
+        <div class="stats">
+          <div class="stat"><span>Score</span><b id="rsScore"></b></div>
+          <div class="stat"><span>Time</span><b id="rsTime"></b></div>
+          <div class="stat"><span>Per question</span><b id="rsAvg"></b></div>
+        </div>
+        <div id="rsWrongList"></div>
+        <div class="row gap">
+          <button id="rsAgainBtn" class="btn primary">Go again</button>
+          <button id="rsMenuBtn" class="btn ghost">Back</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── PROGRESS ───────────────────────── -->
+    <section id="progress" class="view" data-view="progress" hidden>
+      <h1>Progress</h1>
+      <div class="stats" id="statTiles"></div>
+      <div class="card">
+        <h2>Activity <span class="muted tiny">— last 12 weeks</span></h2>
+        <div id="heatmap" class="heatmap"></div>
+      </div>
+      <div class="chart-grid">
+        <div class="card"><h2>Reasoning score <span class="muted tiny">— timed rounds</span></h2><div id="chartScore" class="chart"></div></div>
+        <div class="card"><h2>Speed <span class="muted tiny">— seconds per question</span></h2><div id="chartSpeed" class="chart"></div></div>
+        <div class="card"><h2>Essays by type</h2><div id="chartEssays" class="chart"></div></div>
+        <div class="card"><h2>Accuracy by puzzle type <span class="muted tiny">— all modes</span></h2><div id="chartTypes" class="chart"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Account sheet -->
+  <dialog id="accountDialog">
+    <form method="dialog" class="sheet">
+      <h2>Account</h2>
+      <p id="accountInfo" class="muted"></p>
+      <div class="row gap wrap">
+        <button type="button" id="signInFromSheet" class="btn primary" hidden>Sign in with Google</button>
+        <button type="button" id="signOutBtn" class="btn ghost" hidden>Sign out</button>
+        <button value="close" class="btn ghost">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "mwlgs-studyhub",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/puzzles.test.js && node tests/ui.test.js",
+    "test:rules": "node tests/rules.test.js firestore.rules",
+    "test:cloud": "node tests/cloud.test.js",
+    "emulators": "firebase emulators:start --project demo-studyhub"
+  }
+}
