@@ -1,5 +1,6 @@
-import { NARRATIVE, ARGUMENTATIVE, CHECKLISTS, QUICK_TAGS } from "./prompts.js";
+import { NARRATIVE, ARGUMENTATIVE, CHECKLISTS, QUICK_TAGS, PLANS } from "./prompts.js";
 import { state, addEssay, deleteEssay, onChange, setSetting } from "./store.js";
+import { openScan, initScan } from "./scan.js";
 import { $, $$, shuffle, sample, escapeHtml, fmtClock, fmtDate, toast, chime, unlockAudio } from "./util.js";
 
 const TOTAL = 40 * 60;
@@ -17,9 +18,10 @@ let session = null; // { type, prompt, endAt, remaining, running, fired: [] }
 let tickHandle = null;
 let wakeLock = null;
 
-const screens = { setup: "#essaySetup", timer: "#essayTimer", check: "#essayCheck" };
+const screens = { setup: "#essaySetup", timer: "#essayTimer", check: "#essayCheck", scan: "#essayScan" };
 function show(name) {
   for (const [k, sel] of Object.entries(screens)) $(sel).hidden = k !== name;
+  if (name === "setup") renderHistory();
   window.scrollTo(0, 0);
 }
 
@@ -67,6 +69,8 @@ function openTimer() {
   $("#timerType").className = "badge" + (session.type === "argumentative" ? " arg" : "");
   $("#timerPrompt").textContent = session.prompt;
   $("#timerAlert").hidden = true;
+  $("#planPanel").hidden = true;
+  $("#planPanel").innerHTML = planHtml(session.type);
   show("timer");
   clearInterval(tickHandle);
   tickHandle = setInterval(tick, 250);
@@ -169,6 +173,25 @@ function endTimer() {
   document.title = "Study Hub";
 }
 
+function planHtml(type) {
+  const P = PLANS[type];
+  return `<b>${LABEL[type]} plan (spend about 5 minutes)</b>
+    <ol>${P.structure.map(([h, d]) => `<li><b>${escapeHtml(h)}:</b> ${escapeHtml(d)}</li>`).join("")}</ol>
+    <b>Tips</b><ul>${P.tips.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
+    <b>Hook ideas</b><ul>${P.hooks.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>`;
+}
+
+function toolkitHtml() {
+  const sec = (type) => `<h3>${LABEL[type]} structure</h3><ol>${PLANS[type].structure.map(([h, d]) => `<li><b>${escapeHtml(h)}:</b> ${escapeHtml(d)}</li>`).join("")}</ol>
+    <ul>${PLANS[type].tips.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>
+    <p><b>Hook ideas:</b></p><ul>${PLANS[type].hooks.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>`;
+  return `${sec("argumentative")}<hr>${sec("narrative")}<hr>
+    <h3>Transition words</h3><div class="tags">${PLANS.transitions.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
+    <h3 style="margin-top:1rem">Counterargument phrases</h3><ul><li>Some argue that…; however, this overlooks…</li><li>Admittedly, … Nevertheless, …</li><li>Critics may claim that… Yet the evidence shows…</li></ul>
+    <h3>Conclusion moves</h3><ul><li>Restate the thesis in new words (never copy it).</li><li>Zoom out: why does this matter beyond school?</li><li>End with a call to action, a question, or an image from your introduction.</li></ul>
+    <h3>Time plan for 40 minutes</h3><ul><li>0–5 min: read the prompt twice, pick a side or a story, outline.</li><li>5–33 min: write — one paragraph roughly every 6 minutes.</li><li>33–38 min: conclusion.</li><li>38–40 min: reread and fix obvious mistakes.</li></ul>`;
+}
+
 // ── Self-check ───────────────────────────────────────────────────────────────
 function openCheck() {
   if (!session) return;
@@ -190,17 +213,18 @@ function updateScore() {
   $("#checkScore").textContent = `${n} / ${CHECKLISTS[session.type].length}`;
 }
 
-function saveEssay() {
+function saveEssay(scanAfter = false) {
   const checks = $$("#checklist input").map((c) => c.checked);
   const tags = $$("#quickTags .tag[aria-pressed='true']").map((t) => t.textContent);
   const used = Math.round((TOTAL - Math.max(0, remaining())) / 60);
-  addEssay({
+  const entry = addEssay({
     type: session.type, prompt: session.prompt,
     score: checks.filter(Boolean).length, max: checks.length, checks,
     tags, notes: $("#essayNotes").value.trim(), minutesUsed: used
   });
   session = null; save();
   $("#promptChoice").hidden = true;
+  if (scanAfter) { openScan(entry.id, () => show("setup")); show("scan"); toast("Saved ✓ Now scan your pages."); return; }
   show("setup");
   toast("Essay saved to your log ✓");
 }
@@ -218,14 +242,19 @@ function renderHistory() {
     return `<details class="card entry">
       <summary>
         <span class="meta"><span class="badge ${e.type === "argumentative" ? "arg" : ""}">${LABEL[e.type]}</span>${fmtDate(e.date)}${e.minutesUsed != null ? ` · ${e.minutesUsed} min` : ""}</span>
-        <span class="score" title="Checklist score">${e.score}/${e.max}</span>
+        <span class="score" title="${e.feedback ? "Tutor score" : "Checklist score"}">${e.score != null ? `${e.score}/${e.max}` : e.feedback ? `${e.feedback.total}/${e.feedback.max}` : "—"}</span>
         <span class="ptext">${escapeHtml(e.prompt)}</span>
       </summary>
       <div class="body">
-        <ul>${items.map((t, i) => `<li class="${e.checks && e.checks[i] ? "" : "no"}">${e.checks && e.checks[i] ? "✓" : "✗"} ${escapeHtml(t.split(" — ")[0])}</li>`).join("")}</ul>
+        ${e.score != null ? `<ul>${items.map((t, i) => `<li class="${e.checks && e.checks[i] ? "" : "no"}">${e.checks && e.checks[i] ? "✓" : "✗"} ${escapeHtml(t.split(" — ")[0])}</li>`).join("")}</ul>` : ""}
+        ${e.feedback ? `<p><b>Tutor ${e.feedback.total}/${e.feedback.max}:</b> ${escapeHtml(e.feedback.summary)}</p>` : ""}
+        ${e.transcript ? `<details class="tr"><summary class="tiny">Transcript (${e.words || "?"} words)</summary><p style="white-space:pre-wrap">${escapeHtml(e.transcript)}</p></details>` : ""}
         ${e.tags && e.tags.length ? `<div class="tags">${e.tags.map((t) => `<span class="tag" aria-pressed="true">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         ${e.notes ? `<p>${escapeHtml(e.notes)}</p>` : ""}
-        <button class="btn small ghost danger-text" data-del="${e.id}">Delete</button>
+        <div class="actions">
+          <button class="btn small" data-scan="${e.id}">${e.transcript || e.feedback ? "📝 Transcript & feedback" : "📷 Scan & get feedback"}</button>
+          <button class="btn small ghost danger-text" data-del="${e.id}">Delete</button>
+        </div>
       </div>
     </details>`;
   }).join("");
@@ -260,7 +289,12 @@ export function initEssay() {
     const t = e.target.closest(".tag");
     if (t) t.setAttribute("aria-pressed", String(t.getAttribute("aria-pressed") !== "true"));
   });
-  $("#saveEssayBtn").addEventListener("click", saveEssay);
+  $("#saveEssayBtn").addEventListener("click", () => saveEssay(false));
+  $("#saveScanBtn").addEventListener("click", () => saveEssay(true));
+  $("#planBtn").addEventListener("click", () => { $("#planPanel").hidden = !$("#planPanel").hidden; });
+  $("#scanOnlyBtn").addEventListener("click", () => { openScan(null, () => show("setup")); show("scan"); });
+  $("#toolkitBtn").addEventListener("click", () => { $("#toolkitBody").innerHTML = toolkitHtml(); $("#toolkitDialog").showModal(); });
+  initScan();
   $("#discardEssayBtn").addEventListener("click", () => {
     if (!confirm("Discard this essay without saving?")) return;
     session = null; save(); show("setup");
@@ -269,6 +303,8 @@ export function initEssay() {
   $("#essayHistory").addEventListener("click", (e) => {
     const b = e.target.closest("[data-del]");
     if (b && confirm("Delete this essay from your log?")) deleteEssay(b.dataset.del);
+    const sc = e.target.closest("[data-scan]");
+    if (sc) { openScan(sc.dataset.scan, () => show("setup")); show("scan"); }
   });
   window.addEventListener("keydown", (e) => {
     if ($("#essayTimer").hidden || e.target.matches("input, textarea, select")) return;
@@ -276,7 +312,8 @@ export function initEssay() {
     if (e.key.toLowerCase() === "f") inFocus() ? exitFocus() : enterFocus();
   });
 
-  onChange(() => { renderHistory(); syncSoundBtn(); });
+  onChange(() => { if (!$("#essaySetup").hidden) renderHistory(); syncSoundBtn(); });
+  window.addEventListener("viewchange", (e) => e.detail === "essay" && !$("#essaySetup").hidden && renderHistory());
 
   // Resume a timer that was running before a refresh.
   try {

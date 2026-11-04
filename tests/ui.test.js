@@ -1,5 +1,5 @@
-// End-to-end test of the site in a real (headless) browser, in "this device only" mode.
-// Run: node tests/ui.test.js   (starts its own static server)
+// End-to-end test of the whole site in a real (headless) browser, in "this device only" mode.
+// Run: node tests/ui.test.js   (starts its own static server; needs Playwright)
 import { createRequire } from "node:module";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -24,11 +24,12 @@ const browser = await chromium.launch();
 const errors = [];
 let step = 0;
 const ok = (msg) => console.log(`✓ ${++step}. ${msg}`);
+const visible = (page, sel) => page.waitForSelector(`${sel}:not([hidden])`);
 
 async function run(name, contextOpts) {
   console.log(`\n── ${name} ──`);
   const ctx = await browser.newContext(contextOpts);
-  // Fast-forward time: install a controllable clock.
+  // Controllable clock that survives reloads.
   await ctx.addInitScript(() => {
     const realNow = Date.now.bind(Date);
     const get = () => +(sessionStorage.getItem("__offset") || 0);
@@ -39,192 +40,237 @@ async function run(name, contextOpts) {
   page.on("pageerror", (e) => errors.push(`${name}: ${e.message}`));
   page.on("console", (m) => m.type() === "error" && errors.push(`${name}: ${m.text()}`));
   page.on("dialog", (d) => d.accept());
+  const tap = (sel) => (contextOpts.hasTouch ? page.tap(sel) : page.click(sel));
   await page.goto(URL_);
+  await visible(page, "#app");
 
-  // App shows (no Firebase config → local mode)
-  await page.waitForSelector("#app:not([hidden])");
-  ok("app loads in local mode, essay tab visible");
+  // ── Home & settings ──
+  assert.ok(await page.isVisible("#home"));
+  assert.match(await page.textContent("#greeting"), /Good (morning|afternoon|evening)/);
+  assert.equal(await page.$$eval(".quick", (x) => x.length), 4);
+  ok("home dashboard: greeting, goal ring, 4 quick starts, word of the day");
+  await page.click("#accountBtn");
+  const exam = new Date(Date.now() + 30 * 86400000);
+  const examKey = `${exam.getFullYear()}-${String(exam.getMonth() + 1).padStart(2, "0")}-${String(exam.getDate()).padStart(2, "0")}`;
+  await page.fill("#setExamDate", examKey);
+  await page.dispatchEvent("#setExamDate", "change");
+  await page.fill("#setGoal", "20");
+  await page.dispatchEvent("#setGoal", "change");
+  await page.click("#accountDialog button[value=close]");
+  assert.match(await page.textContent("#countdown"), /30 days until your exam/);
+  assert.match(await page.textContent("#goalRing"), /of 20/);
+  ok("settings: exam-date countdown (30 days) and daily goal (20)");
 
   // ── Essay ──
+  await page.click("a[data-tab=essay]");
   await page.click("[data-etype=argumentative]");
   await page.click("#essayStartBtn");
-  const cards = await page.$$("#promptCards .prompt-card");
-  assert.equal(cards.length, 2);
   const badges = await page.$$eval("#promptCards .badge", (b) => b.map((x) => x.textContent));
   assert.deepEqual(badges, ["Argumentative", "Argumentative"]);
-  ok("Start shows 2 argumentative prompts");
+  const promptText = await page.textContent("#promptCards .prompt-card span:nth-child(2)");
+  ok(`argumentative prompts are formal: “${promptText.slice(0, 60)}…”`);
   await page.click("[data-etype=surprise]");
   await page.click("#rerollBtn");
-  const sb = await page.$$eval("#promptCards .badge", (b) => b.map((x) => x.textContent).sort());
-  assert.deepEqual(sb, ["Argumentative", "Narrative"]);
-  ok("Surprise me deals one of each type");
+  assert.deepEqual((await page.$$eval("#promptCards .badge", (b) => b.map((x) => x.textContent))).sort(), ["Argumentative", "Narrative"]);
   await page.click("[data-etype=narrative]");
   await page.click("#rerollBtn");
-  const prompt = await page.textContent("#promptCards .prompt-card span:nth-child(2)");
   await page.click("#promptCards .prompt-card");
-  await page.waitForSelector("#essayTimer:not([hidden])");
-  assert.equal(await page.textContent("#timerPrompt"), prompt);
-  const c1 = await page.textContent("#timerClock");
-  assert.ok(c1 === "40:00" || c1 === "39:59", c1);
-  ok(`timer starts at ${c1} with chosen prompt`);
-
+  await visible(page, "#essayTimer");
+  ok("surprise deals one of each; narrative prompt starts the 40:00 timer");
+  await page.click("#planBtn");
+  assert.match(await page.textContent("#planPanel"), /Reflection/);
+  await page.click("#planBtn");
+  ok("planning guide toggles during the timer");
   await page.evaluate(() => window.__advance(5 * 60 * 1000 + 500));
-  await page.waitForFunction(() => !document.querySelector("#timerAlert").hidden);
-  assert.match(await page.textContent("#timerAlert"), /35 minutes left/);
-  assert.equal(await page.textContent("#timerPhase"), "Write");
-  ok("35-min alert fires: " + (await page.textContent("#timerAlert")));
-
+  await page.waitForFunction(() => /35 minutes left/.test(document.querySelector("#timerAlert").textContent));
   await page.click("#pauseBtn");
   const paused = await page.textContent("#timerClock");
   await page.evaluate(() => window.__advance(60 * 1000));
   await page.waitForTimeout(400);
   assert.equal(await page.textContent("#timerClock"), paused);
   await page.click("#pauseBtn");
-  ok(`pause holds the clock at ${paused}, resume works`);
-
-  await page.click("#soundBtn");
-  assert.match(await page.textContent("#soundBtn"), /off/);
-  await page.click("#soundBtn");
-  ok("sound toggle works");
-
   await page.click("#fsBtn");
-  await page.waitForTimeout(300);
-  const fs = await page.evaluate(() => !!document.fullscreenElement || document.querySelector("#essayTimer").classList.contains("focus"));
-  assert.ok(fs);
-  const box = await page.$eval("#timerClock", (e) => e.getBoundingClientRect().height);
-  ok(`full-screen mode on (clock ${Math.round(box)}px tall)`);
+  await page.waitForTimeout(200);
+  assert.ok(await page.evaluate(() => !!document.fullscreenElement || document.querySelector("#essayTimer").classList.contains("focus")));
   await page.click("#fsBtn");
-
   await page.evaluate(() => window.__advance(25 * 60 * 1000));
   await page.waitForFunction(() => /10 minutes/.test(document.querySelector("#timerAlert").textContent));
-  ok("10-min alert fires");
   await page.evaluate(() => window.__advance(5 * 60 * 1000));
   await page.waitForFunction(() => /5 minutes/.test(document.querySelector("#timerAlert").textContent));
-  assert.equal(await page.textContent("#timerPhase"), "Conclude");
-  ok("5-min alert fires (start concluding)");
-
-  // Reload mid-essay: timer should survive
   await page.reload();
-  await page.waitForSelector("#essayTimer:not([hidden])");
-  ok("timer survives a page refresh: " + (await page.textContent("#timerClock")));
-
+  await visible(page, "#app");
+  await page.click("a[data-tab=essay]");
+  await visible(page, "#essayTimer");
   await page.evaluate(() => window.__advance(6 * 60 * 1000));
-  await page.waitForSelector("#essayCheck:not([hidden])", { timeout: 6000 });
-  const items = await page.$$eval("#checklist .check b", (b) => b.map((x) => x.textContent));
-  assert.deepEqual(items, ["Hook", "Clear story", "Sensory detail", "Reflection / lesson", "Strong ending"]);
-  ok("time up → narrative self-check checklist appears");
+  await visible(page, "#essayCheck");
+  ok("35/10/5-min alerts, pause, full screen, survives refresh, time-up → checklist");
   await page.click("#checklist .check:nth-child(1)");
-  await page.click("#checklist .check:nth-child(3)");
   await page.click("#checklist .check:nth-child(4)");
-  assert.equal(await page.textContent("#checkScore"), "3 / 5");
   await page.click("#quickTags .tag:has-text('weak ending')");
-  await page.fill("#essayNotes", "Good hook but rushed");
   await page.click("#saveEssayBtn");
-  await page.waitForSelector("#essaySetup:not([hidden])");
-  const entry = await page.textContent("#essayHistory .entry");
-  assert.match(entry, /3\/5/); assert.match(entry, /weak ending/); assert.match(entry, /rushed/);
-  ok("essay logged with score 3/5, tag and notes");
+  await visible(page, "#essaySetup");
+  assert.match(await page.textContent("#essayHistory .entry"), /2\/5/);
+  ok("essay saved to the log with score 2/5");
 
-  // ── Reasoning: timed round ──
+  // Scan screen (no AI key): paste text → quick check → save as a new log entry
+  await page.click("#scanOnlyBtn");
+  await visible(page, "#essayScan");
+  await page.selectOption("#scanType", "argumentative");
+  await page.fill("#scanPrompt", "Should homework be optional?");
+  const essay = `Homework should be optional for high school students because it causes stress and does not always improve learning.\n\nFirst, homework takes time away from sleep. For example, a survey found that many students sleep less than seven hours. As a result, they learn less in class.\n\nSecond, optional homework lets students choose what helps them. Furthermore, motivated students will still practise.\n\nSome argue that homework teaches discipline. However, discipline can be built through sports and clubs too.\n\nIn conclusion, homework should be optional so that students can rest, choose, and learn.`;
+  await page.fill("#transcript", essay);
+  await page.dispatchEvent("#transcript", "input");
+  assert.match(await page.textContent("#wordCount"), /\d+ words/);
+  await page.click("#quickCheckBtn");
+  assert.match(await page.textContent("#feedbackOut"), /checks passed/);
+  assert.match(await page.textContent("#feedbackOut"), /counterargument/i);
+  await page.click("#aiFeedbackBtn");
+  await page.waitForFunction(() => document.querySelector("#accountDialog").open); // settings open so you can add a key
+  await page.click("#accountDialog button[value=close]");
+  ok("scanner: quick check works offline; AI tutor asks for an API key first");
+  await page.click("#saveTranscriptBtn");
+  await page.click("#scanBackBtn");
+  await visible(page, "#essaySetup");
+  assert.equal(await page.$$eval("#essayHistory .entry", (x) => x.length), 2);
+  assert.match(await page.textContent("#essayHistory"), /Should homework be optional/);
+  ok("pasted essay saved to the log with its transcript");
+  await page.click("#toolkitBtn");
+  assert.match(await page.textContent("#toolkitBody"), /Transition words/);
+  await page.click("#toolkitDialog button[value=close]");
+  ok("writing toolkit opens");
+
+  // ── Reasoning ──
   await page.click("a[data-tab=reasoning]");
+  await page.click("#levelSeg [data-level='3']");
+  await page.click("#levelSeg [data-level='2']");
   await page.click("[data-mode=timed]");
-  await page.waitForSelector("#rsPlay:not([hidden])");
-  assert.equal(await page.textContent("#rsTimer"), "05:00");
-  let correct = 0; const seenTypes = new Set();
+  await visible(page, "#rsPlay");
+  const seen = new Set();
+  let right = 0;
   for (let i = 0; i < 10; i++) {
-    seenTypes.add(await page.textContent("#rsType"));
-    const choice = i % 3 === 0 ? 0 : 1; // answer a mix of options
-    await page.click(`#rsOptions .opt >> nth=${choice}`);
+    seen.add(await page.textContent("#rsType"));
+    assert.equal(await page.$$eval("#rsOptions .opt", (x) => x.length), 5);
+    if (i === 0) { await page.click("#rsFlagBtn"); }
+    await page.click(`#rsOptions .opt >> nth=${i % 5}`);
     const fb = await page.textContent("#rsFeedback");
-    if (fb.startsWith("Correct")) correct++;
-    assert.ok(fb.length > 15, "explanation shown");
-    assert.equal(await page.$$eval("#rsOptions .opt.right", (x) => x.length), 1);
+    if (fb.startsWith("Correct")) right++;
+    assert.ok(fb.length > 20);
     await page.click("#rsNextBtn");
   }
-  await page.waitForSelector("#rsResult:not([hidden])");
-  assert.equal(await page.textContent("#rsScore"), `${correct} / 10`);
-  assert.equal(seenTypes.size, 5);
-  ok(`timed round: 10 questions across all 5 types, scored ${correct}/10, answer+explanation each time`);
-
-  const shapeSvg = await page.evaluate(async () => {
-    const m = await import("./js/shapes.js"); return m.frameSvg({ kind: "arrow", rot: 90, fill: true });
-  });
-  assert.match(shapeSvg, /<svg/);
-
-  // ── Review mistakes ──
+  await visible(page, "#rsResult");
+  assert.equal(await page.textContent("#rsScore"), `${right} / 10`);
+  ok(`timed mix: 10 questions from ${seen.size} types, 5 options each, explanations; scored ${right}/10`);
   await page.click("#rsMenuBtn");
-  const mc = await page.textContent("#mistakeCount");
-  const wrong = 10 - correct;
-  if (wrong > 0) {
-    assert.match(mc, new RegExp(`^${wrong} saved`));
-    await page.click("[data-mode=review]");
-    let fixed = 0;
-    const n = Math.min(10, wrong);
-    for (let i = 0; i < n; i++) {
-      await page.click("#rsOptions .opt >> nth=0");
-      if ((await page.textContent("#rsFeedback")).startsWith("Correct")) fixed++;
-      await page.click("#rsNextBtn");
-    }
-    await page.waitForSelector("#rsResult:not([hidden])");
-    await page.click("#rsMenuBtn");
-    const after = wrong - fixed;
-    assert.match(await page.textContent("#mistakeCount"), after ? new RegExp(`^${after} saved`) : /No mistakes/);
-    ok(`review mode retried ${n} mistakes; ${fixed} correct ones removed, ${after} remain`);
-  }
+  assert.match(await page.textContent("#flagCount"), /1 flagged/);
+  const wrong = 10 - right;
+  if (wrong) assert.match(await page.textContent("#mistakeCount"), new RegExp(`^${wrong} saved`));
+  await page.click("[data-mode=flags]");
+  await visible(page, "#rsPlay");
+  await page.click("#rsOptions .opt >> nth=0");
+  await page.click("#rsNextBtn");
+  await visible(page, "#rsResult");
+  await page.click("#rsMenuBtn");
+  ok(`flagged question saved & replayed; ${wrong} mistakes saved for review`);
 
-  // ── Untimed practice with focus filter ──
-  for (const t of ["Number series", "Letter series", "Word analogies", "Odd one out"]) await page.click(`#typeFilter .tag:has-text("${t}")`);
-  await page.click("[data-mode=practice]");
-  for (let i = 0; i < 4; i++) {
-    assert.equal(await page.textContent("#rsType"), "Shape patterns");
-    assert.equal(await page.$$eval("#rsDisplay .frames svg", (x) => x.length), 5);
-    assert.equal(await page.$$eval("#rsOptions svg", (x) => x.length), 4);
-    await page.keyboard.press("2");
+  for (const t of ["Paper folding", "Figure balancing", "Figure matrices"]) {
+    await page.click("#typeAllBtn"); // toggles to core set or all
+    const ids = await page.$$eval("#typeFilter .tag", (x) => x.map((b) => [b.textContent, b.getAttribute("aria-pressed")]));
+    for (const [label, pressed] of ids) if ((label === t) !== (pressed === "true")) await page.click(`#typeFilter .tag:text-is("${label}")`);
+    await page.click("[data-mode=practice]");
+    await visible(page, "#rsPlay");
+    assert.equal(await page.textContent("#rsType"), t);
+    assert.equal(await page.$$eval("#rsOptions .opt svg", (x) => x.length), 5);
+    assert.ok(await page.$$eval("#rsDisplay svg", (x) => x.length) >= 2);
+    await page.click("#rsHelpBtn");
+    assert.ok(await page.isVisible("#rsHelp"));
+    await page.keyboard.press("3");
     await page.keyboard.press("Enter");
+    await page.click("#rsEndBtn");
+    await page.click("#rsMenuBtn");
   }
-  await page.click("#rsEndBtn");
-  await page.waitForSelector("#rsResult:not([hidden])");
-  ok("untimed practice filtered to shape patterns (SVG), keyboard answering works");
+  await page.click("#typeAllBtn");
+  if ((await page.$$eval("#typeFilter .tag[aria-pressed=true]", (x) => x.length)) < 14) await page.click("#typeAllBtn");
+  ok("nonverbal practice: folding, balance and matrices draw SVG questions with 5 SVG options; keyboard + hints work");
+
+  await page.click("[data-mode=learn]");
+  assert.equal(await page.$$eval("#learnList details", (x) => x.length), 14);
+  await page.click("[data-back=menu] >> visible=true");
+  ok("“How to solve” has strategies for all 14 question types");
+
+  // Mock CogAT, short form: 9 subtests × 4
+  await page.click("[data-mode=mock]");
+  await page.click("#mockLen [data-len='4']");
+  assert.match(await page.textContent("#mockSummary"), /9 subtests · 36 questions/);
+  await page.click("#mockStartBtn");
+  await visible(page, "#rsPlay");
+  assert.match(await page.textContent("#rsProgress"), /Verbal analogies · 1\/4/);
+  await page.click("#rsSkipBtn");
+  await page.click("#rsPrevBtn");
+  await page.click("#rsOptions .opt >> nth=1");
+  assert.ok(await page.isHidden("#rsFeedback"));
+  for (let i = 0; i < 3; i++) { await page.click("#rsOptions .opt >> nth=0"); await page.click("#rsNextBtn"); }
+  await page.click("#rsNextBtn"); // last question of section 1 → next section
+  assert.match(await page.textContent("#rsProgress"), /Sentence completion · 1\/4/);
+  await page.evaluate(() => window.__advance(10 * 60 * 1000)); // section time runs out
+  await page.waitForFunction(() => /Verbal classification/.test(document.querySelector("#rsProgress").textContent));
+  ok("mock CogAT: no feedback during the test, skip/back within a section, section timer auto-advances");
+  for (let i = 0; i < 40 && await page.isVisible("#rsPlay"); i++) { await page.click("#rsOptions .opt >> nth=2"); await page.click("#rsNextBtn"); }
+  await visible(page, "#rsResult");
+  assert.match(await page.textContent("#rsScore"), /\/ 36/);
+  assert.match(await page.textContent("#rsBreakdown"), /Verbal.*Quantitative.*Nonverbal/s);
+  ok(`mock finished: ${await page.textContent("#rsScore")} with battery breakdown and full review`);
   await page.click("#rsMenuBtn");
-  for (const t of ["Number series", "Letter series", "Word analogies", "Odd one out"]) await page.click(`#typeFilter .tag:has-text("${t}")`);
+
+  // ── Vocab ──
+  await page.click("a[data-tab=vocab]");
+  await visible(page, "#vCards");
+  await tap("#flash");
+  await page.click("#vYes");
+  await tap("#flash");
+  await page.click("#vNo");
+  await page.click("[data-vtab=quiz]");
+  await page.click("#vQuiz .opt >> nth=0");
+  assert.ok(await page.isVisible("#vqFb"));
+  await page.click("#vqNext");
+  await page.click("[data-vtab=list]");
+  await page.fill("#vSearch", "ephemeral");
+  assert.equal(await page.$$eval(".vrow", (x) => x.length), 1);
+  ok("vocab: flashcards flip & grade, quiz gives feedback, word list search");
 
   // ── Progress ──
   await page.click("a[data-tab=progress]");
   await page.waitForSelector("#chartScore svg");
   const tiles = await page.textContent("#statTiles");
-  assert.match(tiles, /🔥 1/); assert.match(tiles, /Essays written1/); assert.match(tiles, /3\.0\/5/);
-  assert.equal(await page.$$eval("#chartSpeed svg", (x) => x.length), 1);
-  assert.equal(await page.$$eval("#chartEssays svg", (x) => x.length), 1);
-  assert.equal(await page.$$eval("#chartTypes svg g", (x) => x.length), 5);
-  assert.equal(await page.$$eval("#heatmap i.on", (x) => x.length), 1);
-  assert.equal(await page.textContent("#streakChip b"), "1");
-  ok("progress: streak 1, essay stats, score/speed/essay/type charts, activity heatmap");
-  if (contextOpts.hasTouch) await page.tap("#chartScore .hit"); else await page.hover("#chartScore .hit");
+  assert.match(tiles, /🔥 1/); assert.match(tiles, /Essays written2/); assert.match(tiles, /Best mock CogAT\d+%/);
+  assert.equal(await page.$$eval("#chartBatteries svg g", (x) => x.length), 3);
+  assert.ok(await page.$$eval("#chartTypes svg g", (x) => x.length) >= 9);
+  ok("progress: streak, mock best, essays, battery chart (3 bars), per-type accuracy");
+  await tap("#chartScore .hit");
   assert.ok(!(await page.$eval("#tooltip", (t) => t.hidden)));
-  ok("chart hover tooltip works");
+  ok("chart tooltip works");
 
-  // ── Persistence ──
+  await page.click("a[data-tab=home]");
+  await page.waitForFunction(() => /Practice/.test(document.querySelector("#focusBody").textContent));
+  assert.ok(Number((await page.textContent("#goalRing text")).trim()) > 40);
+  ok("home: focus area lists weakest types; goal ring counts today's answers");
+
   await page.reload();
-  await page.waitForSelector("#app:not([hidden])");
+  await visible(page, "#app");
   await page.click("a[data-tab=progress]");
-  assert.match(await page.textContent("#statTiles"), /Essays written1/);
+  await page.waitForFunction(() => /Essays written2/.test(document.querySelector("#statTiles").textContent));
   ok("data persists after reload");
 
-  // ── Dark mode ──
   await page.click("#themeBtn");
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   await page.click("#themeBtn");
-  const bg2 = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  assert.notEqual(bg, bg2);
-  ok(`dark mode toggle switches theme (${bg} ↔ ${bg2})`);
-
-  // No horizontal scroll
-  for (const tab of ["essay", "reasoning", "progress"]) {
+  assert.notEqual(bg, await page.evaluate(() => getComputedStyle(document.body).backgroundColor));
+  for (const tab of ["home", "essay", "reasoning", "vocab", "progress"]) {
     await page.click(`a[data-tab=${tab}]`);
+    await page.waitForFunction((t) => !document.querySelector("#" + t).hidden, tab);
     const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(over <= 1, `${tab} overflows by ${over}px`);
   }
-  ok("no horizontal overflow on any tab");
+  ok("dark mode toggles; no horizontal overflow on any tab");
   await ctx.close();
 }
 

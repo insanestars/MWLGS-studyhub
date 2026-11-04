@@ -1,5 +1,5 @@
 import { state, onChange } from "./store.js";
-import { TYPES } from "./puzzles.js";
+import { TYPES, BATTERIES } from "./puzzles.js";
 import { $, todayKey, addDays, escapeHtml, fmtDate } from "./util.js";
 
 // ── Streak ───────────────────────────────────────────────────────────────────
@@ -97,17 +97,26 @@ function render() {
   if ($("#progress").hidden) return;
   const { essays, rounds, activeDays } = state;
   const streak = computeStreak(activeDays);
-  const timed = rounds.filter((r) => r.mode === "timed");
-  const avgEssay = essays.length ? essays.reduce((a, e) => a + e.score / e.max, 0) / essays.length * 5 : null;
+  const timed = rounds.filter((r) => r.mode === "timed" || r.mode === "mock");
+  const checked = essays.filter((e) => e.score != null && e.max);
+  const avgEssay = checked.length ? checked.reduce((a, e) => a + e.score / e.max, 0) / checked.length * 5 : null;
+  const tutored = essays.filter((e) => e.feedback);
+  const avgTutor = tutored.length ? tutored.reduce((a, e) => a + e.feedback.total / e.feedback.max, 0) / tutored.length * 20 : null;
   const recent = timed.slice(-5);
   const recentPct = recent.length ? Math.round(recent.reduce((a, r) => a + r.correct / r.total, 0) / recent.length * 100) : null;
   const totalQ = rounds.reduce((a, r) => a + (r.answered ?? r.total), 0);
+  const mocks = rounds.filter((r) => r.mode === "mock");
+  const bestMock = mocks.length ? Math.max(...mocks.map((r) => Math.round((r.correct / r.total) * 100))) : null;
+  const mastered = Object.values(state.vocab || {}).filter((v) => v.box >= 4).length;
 
   $("#statTiles").innerHTML = [
     ["Daily streak", `🔥 ${streak.current}`, streak.doneToday ? `Done today · best ${streak.best}` : streak.current ? `Practise today to keep it! · best ${streak.best}` : `Best ${streak.best}`],
+    ["Reasoning", recentPct == null ? "—" : `${recentPct}%`, `last ${recent.length || 0} timed rounds · ${totalQ} questions total`],
+    ["Best mock CogAT", bestMock == null ? "—" : `${bestMock}%`, `${mocks.length} mock test${mocks.length === 1 ? "" : "s"} taken`],
     ["Essays written", essays.length, `${essays.filter((e) => e.type === "narrative").length} narrative · ${essays.filter((e) => e.type === "argumentative").length} argumentative`],
-    ["Avg checklist", avgEssay == null ? "—" : `${avgEssay.toFixed(1)}/5`, "across all essays"],
-    ["Reasoning", recentPct == null ? "—" : `${recentPct}%`, `last ${recent.length || 0} timed rounds · ${totalQ} questions total`]
+    ["Avg checklist", avgEssay == null ? "—" : `${avgEssay.toFixed(1)}/5`, `self-check · ${checked.length} essays`],
+    ["Avg tutor score", avgTutor == null ? "—" : `${avgTutor.toFixed(1)}/20`, `${tutored.length} essay${tutored.length === 1 ? "" : "s"} reviewed`],
+    ["Vocabulary", mastered, "words mastered"]
   ].map(([k, v, sub]) => `<div class="stat"><span>${k}</span><b>${v}</b><small>${sub}</small></div>`).join("");
 
   // Heatmap: 12 weeks, columns = weeks starting Monday.
@@ -126,30 +135,41 @@ function render() {
   const last = timed.slice(-30);
   const pts = (fn) => last.map((r) => ({ label: new Date(r.date).toLocaleDateString(undefined, { day: "numeric", month: "short" }), ...fn(r) }));
   lineChart($("#chartScore"), pts((r) => ({ y: (r.correct / r.total) * 100, tip: `${fmtDate(r.date)}: ${r.correct}/${r.total} (${Math.round(r.correct / r.total * 100)}%)` })),
-    { yMax: 100, yFmt: (v) => `${Math.round(v)}%`, empty: "Finish a timed round to see your score trend." });
+    { yMax: 100, yFmt: (v) => `${Math.round(v)}%`, empty: "Finish a timed mix or mock test to see your score trend." });
   lineChart($("#chartSpeed"), pts((r) => ({ y: r.avgSeconds || r.seconds / r.total, tip: `${fmtDate(r.date)}: ${(r.avgSeconds || r.seconds / r.total).toFixed(1)}s per question` })),
     { yFmt: (v) => `${Math.round(v)}s`, empty: "Finish a timed round to see your speed. Lower is faster." });
 
   const essayRows = ["narrative", "argumentative"].map((t, i) => {
     const list = essays.filter((e) => e.type === t);
-    const avg = list.length ? list.reduce((a, e) => a + e.score, 0) / list.length : 0;
+    const sc = list.filter((e) => e.score != null);
+    const avg = sc.length ? sc.reduce((a, e) => a + (e.score / e.max) * 5, 0) / sc.length : null;
     return { label: t === "narrative" ? "Narrative" : "Argumentative", value: list.length, avg, n: list.length,
       color: i ? "var(--series-2)" : "var(--series-1)",
-      tip: list.length ? `${list.length} essay${list.length > 1 ? "s" : ""} · avg ${avg.toFixed(1)}/5` : "None yet" };
+      tip: list.length ? `${list.length} essay${list.length > 1 ? "s" : ""}${avg != null ? ` · avg checklist ${avg.toFixed(1)}/5` : ""}` : "None yet" };
   });
   barChart($("#chartEssays"), essays.length ? essayRows : [], {
-    max: Math.max(...essayRows.map((r) => r.value)), fmt: (r) => r.n ? `${r.n} · ${r.avg.toFixed(1)}/5` : "0",
+    max: Math.max(...essayRows.map((r) => r.value)), fmt: (r) => (r.n ? `${r.n}${r.avg != null ? ` · ${r.avg.toFixed(1)}/5` : ""}` : "0"),
     empty: "Log an essay to see this."
   });
 
-  const agg = {};
-  for (const r of rounds) for (const [t, v] of Object.entries(r.byType || {})) {
-    agg[t] = agg[t] || { c: 0, t: 0 }; agg[t].c += v.c; agg[t].t += v.t;
+  const agg = {}, bat = {};
+  for (const r of rounds) {
+    for (const [t, v] of Object.entries(r.byType || {})) { agg[t] = agg[t] || { c: 0, t: 0 }; agg[t].c += v.c; agg[t].t += v.t; }
+    for (const [t, v] of Object.entries(r.byType || {})) {
+      const b = TYPES[t] && TYPES[t].battery; if (!b) continue;
+      bat[b] = bat[b] || { c: 0, t: 0 }; bat[b].c += v.c; bat[b].t += v.t;
+    }
   }
-  const typeRows = Object.keys(TYPES).filter((t) => agg[t] && agg[t].t).map((t) => ({
-    label: TYPES[t], value: agg[t].c / agg[t].t * 100, tip: `${agg[t].c} of ${agg[t].t} correct`
+  const batRows = Object.entries(BATTERIES).filter(([b]) => bat[b]).map(([b, info]) => ({
+    label: info.name, value: (bat[b].c / bat[b].t) * 100, color: `var(--${info.color})`, tip: `${bat[b].c} of ${bat[b].t} correct`
   }));
+  barChart($("#chartBatteries"), batRows, { max: 100, fmt: (r) => `${Math.round(r.value)}%`, empty: "Answer some questions to see your verbal, quantitative and nonverbal accuracy." });
+  const typeRows = Object.keys(TYPES).filter((t) => agg[t] && agg[t].t).map((t) => ({
+    label: TYPES[t].name, value: agg[t].c / agg[t].t * 100, color: `var(--${BATTERIES[TYPES[t].battery].color})`, tip: `${agg[t].c} of ${agg[t].t} correct`
+  })).sort((a, b) => a.value - b.value);
   barChart($("#chartTypes"), typeRows, { max: 100, fmt: (r) => `${Math.round(r.value)}%`, empty: "Answer some puzzles to see which types need work." });
+  const legend = Object.values(BATTERIES).map((i) => `<span><i style="background:var(--${i.color})"></i>${i.name}</span>`).join("");
+  if (typeRows.length) $("#chartTypes").insertAdjacentHTML("beforeend", `<div class="legend">${legend}</div>`);
 }
 
 export function initProgress() {

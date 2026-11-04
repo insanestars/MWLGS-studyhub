@@ -71,7 +71,8 @@ try {
   ok("sign-in screen shown when Firebase is configured");
   await signIn(a.page);
   ok("Google sign-in completes and the app loads the user's cloud data");
-  assert.match(await a.page.textContent("#essayHistory"), /from guest mode/);
+  await a.page.click("a[data-tab=essay]");
+  await a.page.waitForFunction(() => /from guest mode/.test(document.querySelector("#essayHistory").textContent));
   ok("progress saved before signing in was copied into the account");
 
   // Log an essay
@@ -85,30 +86,42 @@ try {
   // Timed round
   await a.page.click("a[data-tab=reasoning]");
   await a.page.click("[data-mode=timed]");
+  await a.page.click("#rsFlagBtn");
   for (let i = 0; i < 10; i++) { await a.page.click("#rsOptions .opt >> nth=0"); await a.page.click("#rsNextBtn"); }
   await a.page.waitForSelector("#rsResult:not([hidden])");
   const score = await a.page.textContent("#rsScore");
-  await a.page.waitForTimeout(1500); // let writes reach the emulator
-  ok(`logged an essay and a timed round (${score}) while signed in`);
+  const wrong = 10 - Number(score.split("/")[0]);
+  // Vocab flashcard
+  await a.page.click("a[data-tab=vocab]");
+  await a.page.click("#flash"); await a.page.click("#vYes");
+  await a.page.waitForTimeout(2500); // let batched writes reach the emulator
+  ok(`logged an essay, a timed round (${score}), a flag and a flashcard while signed in`);
 
   // Check the data landed in Firestore under this user's uid only
   const uid = await a.page.evaluate(async () => (await import("./js/store.js")).currentUser().uid);
   const list = async (c) => (await (await fetch(`http://127.0.0.1:8080/v1/projects/demo-studyhub/databases/(default)/documents/users/${uid}/${c}`, { headers: { Authorization: "Bearer owner" } })).json()).documents || [];
-  const [essays, rounds, meta] = await Promise.all([list("essays"), list("rounds"), list("meta")]);
+  const [essays, rounds, meta, mistakes, flags] = await Promise.all([list("essays"), list("rounds"), list("meta"), list("mistakes"), list("flags")]);
   assert.equal(essays.length, 2); assert.equal(rounds.length, 1); assert.equal(meta.length, 1);
-  ok(`Firestore has users/${uid.slice(0, 6)}…/ essays=2, rounds=1, meta=1`);
+  assert.equal(mistakes.length, wrong); assert.equal(flags.length, 1);
+  assert.ok(meta[0].fields.vocab.mapValue.fields, "vocab progress saved");
+  assert.ok(meta[0].fields.daily.mapValue.fields, "daily counts saved");
+  ok(`Firestore has users/${uid.slice(0, 6)}…/ essays=2, rounds=1, mistakes=${wrong}, flags=1, meta (vocab + daily goal)`);
 
   // ── Device 2: phone, same Google account ──
   const b = await device("phone", { ...devices["iPhone 13"] });
   await b.page.goto(URL_);
   await signIn(b.page);
+  await b.page.click("a[data-tab=essay]");
+  await b.page.waitForFunction(() => /synced essay/.test(document.querySelector("#essayHistory").textContent));
   const hist = await b.page.textContent("#essayHistory");
   assert.match(hist, /synced essay/); assert.match(hist, /from guest mode/);
   await b.page.click("a[data-tab=progress]");
   await b.page.waitForSelector("#chartScore svg");
   assert.match(await b.page.textContent("#statTiles"), /Essays written2/);
   assert.equal(await b.page.textContent("#streakChip b"), "1");
-  ok("phone signed into same account sees both essays, the round, and streak 1");
+  await b.page.click("a[data-tab=reasoning]");
+  await b.page.waitForFunction((w) => document.querySelector("#flagCount").textContent.includes("1 flagged") && (w === 0 || document.querySelector("#mistakeCount").textContent.startsWith(w + " saved")), wrong);
+  ok("phone signed into same account sees both essays, the round, streak 1, the flag and the mistakes");
 
   // Delete from phone → gone on laptop after reload
   await b.page.click("a[data-tab=essay]");
@@ -117,6 +130,7 @@ try {
   await b.page.waitForTimeout(1500);
   await a.page.reload();
   await a.page.waitForSelector("#app:not([hidden])");
+  await a.page.click("a[data-tab=essay]");
   await a.page.waitForTimeout(800);
   assert.doesNotMatch(await a.page.textContent("#essayHistory"), /synced essay/);
   ok("deleting on the phone syncs to the laptop");

@@ -4,24 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Study Hub</title>
-  <meta name="description" content="Essay timing, reasoning practice and progress tracking for entrance exam prep.">
+  <meta name="description" content="Entrance exam prep: CogAT-style reasoning practice, timed handwritten essays with scanning and tutor feedback, vocabulary and progress tracking.">
   <meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f6bed'/%3E%3Cpath d='M18 46V18h18a8 8 0 010 16H24m8 0l10 12' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
   <script>
-    // Apply saved theme before paint to avoid a flash.
     try { const t = localStorage.getItem("studyhub:theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
   </script>
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#essay" aria-label="Study Hub home">
+    <a class="brand" href="#home" aria-label="Study Hub home">
       <span class="logo" aria-hidden="true">S</span><span>Study Hub</span>
     </a>
     <nav class="tabs" aria-label="Sections">
+      <a href="#home" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg><span>Home</span></a>
       <a href="#essay" data-tab="essay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg><span>Essay</span></a>
       <a href="#reasoning" data-tab="reasoning"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0012 3z"/></svg><span>Reasoning</span></a>
+      <a href="#vocab" data-tab="vocab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 21V5M8 7h7M8 11h5"/></svg><span>Vocab</span></a>
       <a href="#progress" data-tab="progress"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Progress</span></a>
     </nav>
     <div class="top-actions">
@@ -29,18 +30,17 @@
       <button id="themeBtn" class="icon-btn" aria-label="Toggle dark mode" title="Toggle dark mode">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></svg>
       </button>
-      <button id="accountBtn" class="icon-btn avatar" aria-label="Account" title="Account">
+      <button id="accountBtn" class="icon-btn avatar" aria-label="Account and settings" title="Account and settings">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
       </button>
     </div>
   </header>
 
-  <!-- Sign-in screen -->
   <section id="login" class="login" hidden>
     <div class="card login-card">
       <span class="logo big" aria-hidden="true">S</span>
       <h1>Study Hub</h1>
-      <p class="muted">Essay timer, reasoning practice and progress — synced across your phone and laptop.</p>
+      <p class="muted">CogAT-style reasoning, timed essays with tutor feedback, vocabulary — synced across your phone and laptop.</p>
       <button id="googleBtn" class="btn google">
         <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.6 28.6A14.5 14.5 0 019.5 24c0-1.6.3-3.2.8-4.6l-7.9-6.1A24 24 0 000 24c0 3.9.9 7.5 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.2 0-11.5-4.1-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
         Sign in with Google
@@ -52,11 +52,35 @@
   </section>
 
   <main id="app" hidden>
+    <!-- ───────────────────────── HOME ───────────────────────── -->
+    <section id="home" class="view" data-view="home">
+      <div class="hero">
+        <div>
+          <p class="muted tiny upper" id="todayLabel"></p>
+          <h1 id="greeting">Let's get to work</h1>
+          <p id="countdown" class="countdown"></p>
+        </div>
+        <div class="goal-ring" id="goalRing" aria-label="Daily goal"></div>
+      </div>
+      <div class="quick-grid">
+        <a class="card quick" href="#essay" data-quick="essay"><span class="mode-icon">✍️</span><b>Timed essay</b><span class="muted tiny">40 min, on paper</span></a>
+        <button class="card quick" data-quick="mix"><span class="mode-icon">⚡</span><b>Quick CogAT mix</b><span class="muted tiny">10 questions · timed</span></button>
+        <button class="card quick" data-quick="mock"><span class="mode-icon">📝</span><b>Mock CogAT</b><span class="muted tiny">All 9 subtests</span></button>
+        <button class="card quick" data-quick="vocab"><span class="mode-icon">📚</span><b>Vocab review</b><span class="muted tiny" id="vocabDue">—</span></button>
+      </div>
+      <div class="home-grid">
+        <div class="card" id="focusCard"><h2>Focus area</h2><div id="focusBody" class="muted">Answer a few questions and your weakest area will show up here.</div></div>
+        <div class="card" id="wotdCard"><h2>Word of the day</h2><div id="wotd"></div></div>
+        <div class="card"><h2>This week</h2><div id="weekStats" class="week"></div></div>
+        <div class="card"><h2>Exam-day tips</h2><ul class="tips" id="tipList"></ul></div>
+      </div>
+    </section>
+
     <!-- ───────────────────────── ESSAY ───────────────────────── -->
-    <section id="essay" class="view" data-view="essay">
+    <section id="essay" class="view" data-view="essay" hidden>
       <div id="essaySetup">
         <h1>Essay practice</h1>
-        <p class="muted">40 minutes, on paper. Pick a type and get two prompts to choose from.</p>
+        <p class="muted">40 minutes, on paper. Pick a type, choose one of two prompts, then scan your essay for feedback.</p>
         <div class="card">
           <div class="segmented" role="radiogroup" aria-label="Essay type">
             <button role="radio" data-etype="narrative" aria-checked="true">Narrative</button>
@@ -64,6 +88,10 @@
             <button role="radio" data-etype="surprise" aria-checked="false">Surprise me</button>
           </div>
           <button id="essayStartBtn" class="btn primary wide">Start</button>
+          <div class="row gap wrap essay-extra">
+            <button id="scanOnlyBtn" class="btn small ghost">📷 Scan an essay</button>
+            <button id="toolkitBtn" class="btn small ghost">🧰 Writing toolkit</button>
+          </div>
         </div>
 
         <div id="promptChoice" hidden>
@@ -85,7 +113,6 @@
         <div id="essayHistory" class="history"></div>
       </div>
 
-      <!-- Timer -->
       <div id="essayTimer" class="timer-screen" hidden>
         <div class="timer-top">
           <span id="timerType" class="badge"></span>
@@ -101,13 +128,14 @@
           <button id="pauseBtn" class="btn primary">Start timer</button>
           <button id="fsBtn" class="btn ghost" title="Full screen">⛶ Full screen</button>
           <button id="soundBtn" class="btn ghost" aria-pressed="true">🔔 Sound on</button>
+          <button id="planBtn" class="btn ghost">📋 Plan guide</button>
           <button id="finishBtn" class="btn ghost">Finish</button>
           <button id="quitBtn" class="btn ghost danger-text">Quit</button>
         </div>
-        <p class="tiny muted hint">Alerts at 35 min left (start writing), 10 min and 5 min (start concluding).</p>
+        <div id="planPanel" class="plan-panel" hidden></div>
+        <p class="tiny muted hint">Alerts at 35 min left (start writing), 10 min and 5 min (start concluding). Space = pause, F = full screen.</p>
       </div>
 
-      <!-- Self-check -->
       <div id="essayCheck" hidden>
         <h1>Time! Self-check</h1>
         <p id="checkPrompt" class="muted"></p>
@@ -121,9 +149,71 @@
           <div id="quickTags" class="tags"></div>
           <textarea id="essayNotes" rows="3" placeholder="e.g. ran out of time, weak ending, good counterargument…"></textarea>
         </div>
-        <div class="row gap">
-          <button id="saveEssayBtn" class="btn primary">Save to log</button>
+        <div class="row gap wrap">
+          <button id="saveScanBtn" class="btn primary">Save &amp; scan for feedback</button>
+          <button id="saveEssayBtn" class="btn">Save to log</button>
           <button id="discardEssayBtn" class="btn ghost">Discard</button>
+        </div>
+      </div>
+
+      <!-- Scanner / transcriber / tutor -->
+      <div id="essayScan" hidden>
+        <div class="row between">
+          <h1>Scan &amp; feedback</h1>
+          <button id="scanBackBtn" class="btn small ghost">← Back</button>
+        </div>
+        <p id="scanFor" class="muted"></p>
+        <ol class="stepper" id="scanSteps">
+          <li data-step="1" class="on">Scan</li><li data-step="2">Transcribe</li><li data-step="3">Feedback</li>
+        </ol>
+
+        <div class="card" id="scanPagesCard">
+          <h2>1 · Scan your pages</h2>
+          <p class="tiny muted">Lay the paper flat in good light and fill the frame. Add every page in order.</p>
+          <div class="row gap wrap">
+            <label class="btn primary file-btn">📷 Take photo<input id="cameraInput" type="file" accept="image/*" capture="environment" multiple></label>
+            <label class="btn file-btn">⬆️ Upload images / PDF<input id="uploadInput" type="file" accept="image/*,application/pdf" multiple></label>
+          </div>
+          <div class="segmented small-seg" role="radiogroup" aria-label="Scan filter" id="filterSeg">
+            <button role="radio" data-filter="scan" aria-checked="true">Scan</button>
+            <button role="radio" data-filter="bw" aria-checked="false">B&amp;W</button>
+            <button role="radio" data-filter="color" aria-checked="false">Original</button>
+          </div>
+          <div id="pageList" class="pages"></div>
+          <div class="row gap wrap">
+            <button id="pdfBtn" class="btn small" disabled>⬇️ Download PDF</button>
+            <span id="scanStatus" class="tiny muted"></span>
+          </div>
+        </div>
+
+        <div class="card" id="transcribeCard">
+          <h2>2 · Transcribe</h2>
+          <div class="row gap wrap">
+            <button id="aiTranscribeBtn" class="btn primary" disabled>✨ Transcribe with AI tutor</button>
+            <button id="ocrBtn" class="btn" disabled>🔤 Basic text reader (free)</button>
+          </div>
+          <p class="tiny muted" id="transcribeHint">AI transcription reads handwriting well (needs your API key in Settings). The free reader works best with neat print. You can also type or paste below.</p>
+          <div id="transcribeProgress" class="progress" hidden><div></div><span></span></div>
+          <textarea id="transcript" rows="12" placeholder="Your essay text appears here. Fix any mistakes before asking for feedback."></textarea>
+          <p class="tiny muted"><span id="wordCount">0 words</span></p>
+        </div>
+
+        <div class="card" id="feedbackCard">
+          <h2>3 · Feedback</h2>
+          <div class="row gap wrap">
+            <button id="aiFeedbackBtn" class="btn primary">🎓 Ask the AI tutor</button>
+            <button id="quickCheckBtn" class="btn">⚡ Quick check (instant, free)</button>
+            <button id="saveTranscriptBtn" class="btn ghost">💾 Save to log</button>
+          </div>
+          <div id="feedbackOut"></div>
+          <div id="tutorChat" class="chat" hidden>
+            <h3>Ask a follow-up question</h3>
+            <div id="chatLog" class="chat-log"></div>
+            <form id="chatForm" class="chat-form">
+              <input id="chatInput" placeholder="e.g. How can I make my hook stronger?" autocomplete="off">
+              <button class="btn primary small">Send</button>
+            </form>
+          </div>
         </div>
       </div>
     </section>
@@ -132,40 +222,76 @@
     <section id="reasoning" class="view" data-view="reasoning" hidden>
       <div id="rsMenu">
         <h1>Reasoning practice</h1>
-        <p class="muted">Fresh puzzles every time — number &amp; letter series, analogies, odd one out and shape patterns.</p>
+        <p class="muted">CogAT-style questions generated fresh every time — verbal, quantitative and nonverbal.</p>
+        <div class="card level-card">
+          <span class="tiny upper muted">Difficulty</span>
+          <div class="segmented" role="radiogroup" aria-label="Difficulty" id="levelSeg">
+            <button role="radio" data-level="1" aria-checked="false">Warm-up</button>
+            <button role="radio" data-level="2" aria-checked="true">Grade 9–10</button>
+            <button role="radio" data-level="3" aria-checked="false">Challenge</button>
+          </div>
+        </div>
         <div class="mode-grid">
-          <button class="card mode" data-mode="timed">
-            <span class="mode-icon">⏱</span><b>Timed round</b><span class="muted">10 questions · 5 minutes</span>
-          </button>
-          <button class="card mode" data-mode="practice">
-            <span class="mode-icon">∞</span><b>Untimed practice</b><span class="muted">As many as you like</span>
-          </button>
-          <button class="card mode" data-mode="review" id="reviewModeBtn">
-            <span class="mode-icon">↺</span><b>Review my mistakes</b><span class="muted" id="mistakeCount">0 saved</span>
-          </button>
+          <button class="card mode" data-mode="timed"><span class="mode-icon">⚡</span><b>Timed mix</b><span class="muted tiny" id="timedSub">10 questions · selected types</span></button>
+          <button class="card mode" data-mode="mock"><span class="mode-icon">📝</span><b>Mock CogAT</b><span class="muted tiny">Timed sections, no hints until the end</span></button>
+          <button class="card mode" data-mode="practice"><span class="mode-icon">∞</span><b>Untimed practice</b><span class="muted tiny">Answer + explanation each time</span></button>
+          <button class="card mode" data-mode="review" id="reviewModeBtn"><span class="mode-icon">↺</span><b>Review mistakes</b><span class="muted tiny" id="mistakeCount">0 saved</span></button>
+          <button class="card mode" data-mode="flags" id="flagModeBtn"><span class="mode-icon">🚩</span><b>Flagged</b><span class="muted tiny" id="flagCount">0 saved</span></button>
+          <button class="card mode" data-mode="learn"><span class="mode-icon">💡</span><b>How to solve</b><span class="muted tiny">Strategies for each type</span></button>
         </div>
         <div class="card">
-          <h2>Practice focus</h2>
-          <p class="tiny muted">For untimed practice: choose which puzzle types to include.</p>
-          <div id="typeFilter" class="tags"></div>
+          <div class="row between"><h2>Question types</h2><button id="typeAllBtn" class="btn small ghost">All</button></div>
+          <div id="typeFilter" class="type-groups"></div>
         </div>
+      </div>
+
+      <div id="rsMockSetup" hidden>
+        <div class="row between"><h1>Mock CogAT</h1><button class="btn small ghost" data-back="menu">← Back</button></div>
+        <p class="muted">Like the real test: sections are timed, there is no feedback until you finish, and you can skip and come back within a section.</p>
+        <div class="card">
+          <h2>Batteries</h2>
+          <div class="tags" id="mockBatteries"></div>
+          <h2 style="margin-top:1rem">Length</h2>
+          <div class="segmented" role="radiogroup" id="mockLen">
+            <button role="radio" data-len="4" aria-checked="false">Short · 4 per subtest</button>
+            <button role="radio" data-len="8" aria-checked="true">Standard · 8</button>
+            <button role="radio" data-len="12" aria-checked="false">Long · 12</button>
+          </div>
+          <p class="tiny muted" id="mockSummary"></p>
+          <button id="mockStartBtn" class="btn primary wide">Begin mock test</button>
+        </div>
+      </div>
+
+      <div id="rsLearn" hidden>
+        <div class="row between"><h1>How to solve</h1><button class="btn small ghost" data-back="menu">← Back</button></div>
+        <div id="learnList"></div>
       </div>
 
       <div id="rsPlay" hidden>
         <div class="row between rs-head">
           <span id="rsProgress" class="badge"></span>
           <span id="rsTimer" class="rs-timer"></span>
-          <button id="rsEndBtn" class="btn small ghost">End</button>
+          <div class="row gap">
+            <button id="rsFlagBtn" class="btn small ghost" aria-pressed="false" title="Flag this question">🚩</button>
+            <button id="rsHelpBtn" class="btn small ghost" title="How to solve this type">💡</button>
+            <button id="rsEndBtn" class="btn small ghost">End</button>
+          </div>
         </div>
+        <div id="rsSectionBar" class="section-bar" hidden></div>
         <div class="card question">
           <span id="rsType" class="tiny muted upper"></span>
           <h2 id="rsQuestion"></h2>
           <div id="rsDisplay" class="display"></div>
           <div id="rsOptions" class="options"></div>
           <div id="rsFeedback" class="feedback" hidden></div>
-          <button id="rsNextBtn" class="btn primary wide" hidden>Next →</button>
+          <div id="rsHelp" class="help" hidden></div>
+          <div class="row gap play-nav">
+            <button id="rsPrevBtn" class="btn ghost" hidden>← Back</button>
+            <button id="rsSkipBtn" class="btn ghost" hidden>Skip</button>
+            <button id="rsNextBtn" class="btn primary" hidden>Next →</button>
+          </div>
         </div>
-        <p class="tiny muted center hide-touch">Tip: press 1–4 to answer, Enter for next.</p>
+        <p class="tiny muted center hide-touch">Keys: 1–5 or A–E to answer · Enter for next · F to flag</p>
       </div>
 
       <div id="rsResult" hidden>
@@ -175,11 +301,30 @@
           <div class="stat"><span>Time</span><b id="rsTime"></b></div>
           <div class="stat"><span>Per question</span><b id="rsAvg"></b></div>
         </div>
+        <div id="rsBreakdown"></div>
         <div id="rsWrongList"></div>
         <div class="row gap">
           <button id="rsAgainBtn" class="btn primary">Go again</button>
           <button id="rsMenuBtn" class="btn ghost">Back</button>
         </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── VOCAB ───────────────────────── -->
+    <section id="vocab" class="view" data-view="vocab" hidden>
+      <h1>Vocabulary</h1>
+      <p class="muted">Grade 9–10 words that show up in analogies, sentence completion and strong essays.</p>
+      <div class="stats" id="vocabStats"></div>
+      <div class="segmented" role="tablist" id="vocabTabs">
+        <button role="tab" data-vtab="cards" aria-checked="true">Flashcards</button>
+        <button role="tab" data-vtab="quiz" aria-checked="false">Quiz</button>
+        <button role="tab" data-vtab="list" aria-checked="false">Word list</button>
+      </div>
+      <div id="vCards" class="vpanel"></div>
+      <div id="vQuiz" class="vpanel" hidden></div>
+      <div id="vList" class="vpanel" hidden>
+        <input id="vSearch" class="search" placeholder="Search words…" aria-label="Search words">
+        <div id="vListBody" class="vlist"></div>
       </div>
     </section>
 
@@ -192,24 +337,45 @@
         <div id="heatmap" class="heatmap"></div>
       </div>
       <div class="chart-grid">
-        <div class="card"><h2>Reasoning score <span class="muted tiny">— timed rounds</span></h2><div id="chartScore" class="chart"></div></div>
+        <div class="card"><h2>Reasoning score <span class="muted tiny">— timed mixes &amp; mocks</span></h2><div id="chartScore" class="chart"></div></div>
         <div class="card"><h2>Speed <span class="muted tiny">— seconds per question</span></h2><div id="chartSpeed" class="chart"></div></div>
+        <div class="card"><h2>CogAT batteries <span class="muted tiny">— accuracy, all modes</span></h2><div id="chartBatteries" class="chart"></div></div>
         <div class="card"><h2>Essays by type</h2><div id="chartEssays" class="chart"></div></div>
-        <div class="card"><h2>Accuracy by puzzle type <span class="muted tiny">— all modes</span></h2><div id="chartTypes" class="chart"></div></div>
+        <div class="card wide"><h2>Accuracy by question type</h2><div id="chartTypes" class="chart"></div></div>
       </div>
     </section>
   </main>
 
-  <!-- Account sheet -->
+  <!-- Account & settings -->
   <dialog id="accountDialog">
     <form method="dialog" class="sheet">
-      <h2>Account</h2>
+      <div class="row between"><h2>Account &amp; settings</h2><button value="close" class="icon-btn" aria-label="Close">✕</button></div>
       <p id="accountInfo" class="muted"></p>
       <div class="row gap wrap">
-        <button type="button" id="signInFromSheet" class="btn primary" hidden>Sign in with Google</button>
-        <button type="button" id="signOutBtn" class="btn ghost" hidden>Sign out</button>
-        <button value="close" class="btn ghost">Close</button>
+        <button type="button" id="signInFromSheet" class="btn primary small" hidden>Sign in with Google</button>
+        <button type="button" id="signOutBtn" class="btn ghost small" hidden>Sign out</button>
       </div>
+      <hr>
+      <label class="field">Exam date <input type="date" id="setExamDate"></label>
+      <label class="field">Daily question goal <input type="number" id="setGoal" min="5" max="200" step="5"></label>
+      <hr>
+      <h3>AI tutor <span class="tiny muted">(optional)</span></h3>
+      <p class="tiny muted">Transcribes handwriting and gives detailed feedback using Claude. Paste an Anthropic API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. Usage is billed to that key (roughly 5–15¢ per essay). The key is stored only in this browser — never in the cloud or the code.</p>
+      <label class="field">API key <input type="password" id="setApiKey" placeholder="sk-ant-…" autocomplete="off"></label>
+      <div class="row gap wrap"><button type="button" id="saveKeyBtn" class="btn small">Save key</button><button type="button" id="clearKeyBtn" class="btn small ghost">Remove key</button><span id="keyStatus" class="tiny muted"></span></div>
+      <hr>
+      <h3>Backup</h3>
+      <div class="row gap wrap">
+        <button type="button" id="exportBtn" class="btn small">⬇️ Export data</button>
+        <label class="btn small ghost file-btn">⬆️ Import<input type="file" id="importInput" accept="application/json"></label>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="toolkitDialog">
+    <form method="dialog" class="sheet wide-sheet">
+      <div class="row between"><h2>Writing toolkit</h2><button value="close" class="icon-btn" aria-label="Close">✕</button></div>
+      <div id="toolkitBody"></div>
     </form>
   </dialog>
 
