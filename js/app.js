@@ -1,10 +1,15 @@
 import * as store from "./store.js";
-import { $, $$, toast, escapeHtml } from "./util.js";
+import { $, $$, toast, escapeHtml, todayKey } from "./util.js";
 import { initEssay } from "./essay.js";
-import { initReasoning } from "./reasoning.js";
+import { initReasoning, start as startReasoning, practiceOnly } from "./reasoning.js";
 import { initProgress, computeStreak } from "./progress.js";
+import { initHome } from "./home.js";
+import { initVocab } from "./vocab.js";
+import { DEFS_SVG } from "./gen/draw.js";
+import * as tutor from "./tutor.js";
 
 const GUEST_FLAG = "studyhub:guest-mode";
+document.body.insertAdjacentHTML("afterbegin", DEFS_SVG); // shared SVG patterns for puzzles
 
 // ── Theme ────────────────────────────────────────────────────────────────────
 function effectiveTheme() {
@@ -20,9 +25,9 @@ $("#themeBtn").addEventListener("click", () => {
 });
 
 // ── Routing ──────────────────────────────────────────────────────────────────
-const VIEWS = ["essay", "reasoning", "progress"];
+const VIEWS = ["home", "essay", "reasoning", "vocab", "progress"];
 function route() {
-  const name = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "essay";
+  const name = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "home";
   for (const v of $$(".view")) v.hidden = v.dataset.view !== name;
   for (const a of $$(".tabs a")) {
     if (a.dataset.tab === name) a.setAttribute("aria-current", "page");
@@ -32,7 +37,6 @@ function route() {
 }
 window.addEventListener("hashchange", () => { route(); window.scrollTo(0, 0); });
 
-// ── Screens ──────────────────────────────────────────────────────────────────
 function showApp() {
   $("#login").hidden = true;
   $("#app").hidden = false;
@@ -45,7 +49,7 @@ function showLogin() {
   $(".tabs").hidden = true;
 }
 
-// ── Account ──────────────────────────────────────────────────────────────────
+// ── Account & settings ───────────────────────────────────────────────────────
 function renderAccount() {
   const user = store.currentUser();
   const btn = $("#accountBtn");
@@ -53,14 +57,37 @@ function renderAccount() {
     ? `<img src="${escapeHtml(user.photoURL)}" alt="" referrerpolicy="no-referrer">`
     : `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>`;
   let info;
-  if (user) info = `Signed in as <b>${escapeHtml(user.displayName || "")}</b><br>${escapeHtml(user.email || "")}<br>Your progress syncs across your devices.`;
+  if (user) info = `Signed in as <b>${escapeHtml(user.displayName || "")}</b> · ${escapeHtml(user.email || "")}<br>Your progress syncs across your devices.`;
   else if (store.isConfigured) info = "Not signed in — progress is saved on this device only. Sign in to sync across your phone and laptop.";
-  else info = "Cloud sync isn't set up yet, so progress is saved on this device only. (Add your Firebase config in <code>js/firebase-config.js</code> — see README.)";
+  else info = "Cloud sync isn't set up yet, so progress is saved on this device only.";
   $("#accountInfo").innerHTML = info;
   $("#signInFromSheet").hidden = !!user || !store.isConfigured;
   $("#signOutBtn").hidden = !user;
+  $("#setExamDate").value = store.state.settings.examDate || "";
+  $("#setGoal").value = store.state.settings.dailyGoal || 30;
+  $("#setApiKey").value = "";
+  $("#setApiKey").placeholder = tutor.hasKey() ? "•••••• key saved — paste to replace" : "sk-ant-…";
+  $("#keyStatus").textContent = tutor.hasKey() ? "✓ AI tutor ready" : "No key saved";
 }
 $("#accountBtn").addEventListener("click", () => { renderAccount(); $("#accountDialog").showModal(); });
+$("#setExamDate").addEventListener("change", (e) => store.setSetting("examDate", e.target.value));
+$("#setGoal").addEventListener("change", (e) => store.setSetting("dailyGoal", Math.max(5, Math.min(200, Number(e.target.value) || 30))));
+$("#saveKeyBtn").addEventListener("click", () => {
+  const k = $("#setApiKey").value.trim();
+  if (!k.startsWith("sk-")) return toast("That doesn't look like an Anthropic API key (it starts with sk-ant-).");
+  tutor.setKey(k); renderAccount(); toast("API key saved on this device ✓");
+});
+$("#clearKeyBtn").addEventListener("click", () => { tutor.setKey(""); renderAccount(); toast("API key removed"); });
+$("#exportBtn").addEventListener("click", () => {
+  const blob = new Blob([store.exportData()], { type: "application/json" });
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `studyhub-backup-${todayKey()}.json` });
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+$("#importInput").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try { await store.importData(await f.text()); toast("Backup imported ✓"); } catch (err) { toast("Couldn't import that file: " + err.message); }
+  e.target.value = "";
+});
 
 async function doSignIn() {
   $("#loginError").hidden = true;
@@ -89,10 +116,11 @@ $("#signOutBtn").addEventListener("click", async () => {
 
 window.addEventListener("store-error", (e) => {
   const code = e.detail && e.detail.code;
-  toast(code === "permission-denied" ? "Couldn't save: permission denied (check Firestore rules)." : "Couldn't save to the cloud — will retry when online.", 5000);
+  toast(code === "permission-denied" ? "Couldn't save: permission denied (check Firestore rules)."
+    : e.detail && e.detail.name === "QuotaExceededError" ? "This device's storage is full — sign in to save to the cloud."
+      : "Couldn't save to the cloud — will retry when online.", 5000);
 });
 
-// ── Streak chip ──────────────────────────────────────────────────────────────
 store.onChange((s) => {
   const { current } = computeStreak(s.activeDays);
   const chip = $("#streakChip");
@@ -105,6 +133,8 @@ store.onChange((s) => {
 initEssay();
 initReasoning();
 initProgress();
+initVocab();
+initHome({ startReasoning, practiceType: practiceOnly });
 
 if (!store.isConfigured) {
   store.useLocal(); showApp(); renderAccount();

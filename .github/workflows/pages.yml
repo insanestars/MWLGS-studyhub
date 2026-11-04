@@ -22,7 +22,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: node tests/puzzles.test.js
+      - run: node tests/puzzles.test.js && node tests/writing.test.js
+        env:
+          N: "100"
 
   deploy:
     needs: test
