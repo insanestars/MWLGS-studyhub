@@ -8,6 +8,9 @@
   <meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f6bed'/%3E%3Cpath d='M18 46V18h18a8 8 0 010 16H24m8 0l10 12' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="stylesheet" href="css/style.css">
   <script>
     try { const t = localStorage.getItem("studyhub:theme"); if (t) document.documentElement.dataset.theme = t; } catch {}
@@ -21,7 +24,7 @@
     <nav class="tabs" aria-label="Sections">
       <a href="#home" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg><span>Home</span></a>
       <a href="#essay" data-tab="essay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg><span>Essay</span></a>
-      <a href="#reasoning" data-tab="reasoning"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0012 3z"/></svg><span>Reasoning</span></a>
+      <a href="#reasoning" data-tab="reasoning"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0012 3z"/></svg><span>Practice</span></a>
       <a href="#vocab" data-tab="vocab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 21V5M8 7h7M8 11h5"/></svg><span>Vocab</span></a>
       <a href="#progress" data-tab="progress"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Progress</span></a>
     </nav>
@@ -64,8 +67,8 @@
       </div>
       <div class="quick-grid">
         <a class="card quick" href="#essay" data-quick="essay"><span class="mode-icon">✍️</span><b>Timed essay</b><span class="muted tiny">40 min, on paper</span></a>
-        <button class="card quick" data-quick="mix"><span class="mode-icon">⚡</span><b>Quick CogAT mix</b><span class="muted tiny">10 questions · timed</span></button>
-        <button class="card quick" data-quick="mock"><span class="mode-icon">📝</span><b>Mock CogAT</b><span class="muted tiny">All 9 subtests</span></button>
+        <button class="card quick" data-quick="mix"><span class="mode-icon">⚡</span><b>Speed sprint</b><span class="muted tiny">Beat the clock</span></button>
+        <button class="card quick" data-quick="mock"><span class="mode-icon">🏁</span><b>Full mock test</b><span class="muted tiny">Timed sections + essay</span></button>
         <button class="card quick" data-quick="vocab"><span class="mode-icon">📚</span><b>Vocab review</b><span class="muted tiny" id="vocabDue">—</span></button>
       </div>
       <div class="home-grid">
@@ -82,10 +85,20 @@
         <h1>Essay practice</h1>
         <p class="muted">40 minutes, on paper. Pick a type, choose one of two prompts, then scan your essay for feedback.</p>
         <div class="card">
-          <div class="segmented" role="radiogroup" aria-label="Essay type">
-            <button role="radio" data-etype="narrative" aria-checked="true">Narrative</button>
-            <button role="radio" data-etype="argumentative" aria-checked="false">Argumentative</button>
+          <div class="segmented cats5" role="radiogroup" aria-label="Essay type">
+            <button role="radio" data-etype="personal" aria-checked="true">Personal</button>
+            <button role="radio" data-etype="challenge" aria-checked="false">Challenge</button>
+            <button role="radio" data-etype="opinion" aria-checked="false">Opinion</button>
+            <button role="radio" data-etype="current" aria-checked="false">Current events</button>
             <button role="radio" data-etype="surprise" aria-checked="false">Surprise me</button>
+          </div>
+          <div class="row gap wrap essay-opts">
+            <label class="field inline">Time
+              <select id="essayMinutes" aria-label="Essay time limit">
+                <option value="15">15 min</option><option value="20">20 min</option><option value="25">25 min</option><option value="30">30 min</option>
+                <option value="40" selected>40 min</option><option value="45">45 min</option><option value="60">60 min</option>
+              </select></label>
+            <label class="check-inline"><input type="checkbox" id="backToBack"> Two essays back to back</label>
           </div>
           <button id="essayStartBtn" class="btn primary wide">Start</button>
           <div class="row gap wrap essay-extra">
@@ -133,6 +146,11 @@
           <button id="quitBtn" class="btn ghost danger-text">Quit</button>
         </div>
         <div id="planPanel" class="plan-panel" hidden></div>
+        <details class="type-along" id="typeAlongBox">
+          <summary>⌨️ Type instead of handwriting (word counter)</summary>
+          <textarea id="typeAlong" rows="10" placeholder="Practise typing your essay here. The word count and pace update as you write."></textarea>
+          <p class="tiny muted"><b id="typeCount">0 words</b> · <span id="typePace">—</span></p>
+        </details>
         <p class="tiny muted hint">Alerts at 35 min left (start writing), 10 min and 5 min (start concluding). Space = pause, F = full screen.</p>
       </div>
 
@@ -218,48 +236,42 @@
       </div>
     </section>
 
-    <!-- ───────────────────────── REASONING ───────────────────────── -->
+    <!-- ───────────────────────── REASONING / PRACTICE ───────────────────────── -->
     <section id="reasoning" class="view" data-view="reasoning" hidden>
       <div id="rsMenu">
-        <h1>Reasoning practice</h1>
-        <p class="muted">CogAT-style questions generated fresh every time — verbal, quantitative and nonverbal.</p>
+        <h1>Practice</h1>
+        <p class="muted">New questions are generated every time, so you won't run out. Math is <b>no calculator</b>; use scratch paper.</p>
         <div class="card level-card">
           <span class="tiny upper muted">Difficulty</span>
           <div class="segmented" role="radiogroup" aria-label="Difficulty" id="levelSeg">
             <button role="radio" data-level="1" aria-checked="false">Warm-up</button>
-            <button role="radio" data-level="2" aria-checked="true">Grade 9–10</button>
+            <button role="radio" data-level="2" aria-checked="true">Exam level</button>
             <button role="radio" data-level="3" aria-checked="false">Challenge</button>
           </div>
         </div>
         <div class="mode-grid">
-          <button class="card mode" data-mode="timed"><span class="mode-icon">⚡</span><b>Timed mix</b><span class="muted tiny" id="timedSub">10 questions · selected types</span></button>
-          <button class="card mode" data-mode="mock"><span class="mode-icon">📝</span><b>Mock CogAT</b><span class="muted tiny">Timed sections, no hints until the end</span></button>
-          <button class="card mode" data-mode="practice"><span class="mode-icon">∞</span><b>Untimed practice</b><span class="muted tiny">Answer + explanation each time</span></button>
-          <button class="card mode" data-mode="review" id="reviewModeBtn"><span class="mode-icon">↺</span><b>Review mistakes</b><span class="muted tiny" id="mistakeCount">0 saved</span></button>
+          <button class="card mode" data-mode="fullSetup"><span class="mode-icon">🏁</span><b>Full mock test</b><span class="muted tiny">5 timed sections + timed essay</span></button>
+          <button class="card mode" data-mode="cogatSetup"><span class="mode-icon">📝</span><b>CogAT-style test</b><span class="muted tiny">9 subtests · real or shorter length</span></button>
+          <button class="card mode" data-mode="sprintSetup"><span class="mode-icon">⚡</span><b>Speed sprint</b><span class="muted tiny">As many as you can in 3–10 min</span></button>
+          <button class="card mode" data-mode="customSetup"><span class="mode-icon">🎛️</span><b>Custom timed drill</b><span class="muted tiny">Pick topics, count and time</span></button>
+          <button class="card mode" data-mode="mistakes" id="reviewModeBtn"><span class="mode-icon">↺</span><b>Mistake review</b><span class="muted tiny" id="mistakeCount">0 saved</span></button>
           <button class="card mode" data-mode="flags" id="flagModeBtn"><span class="mode-icon">🚩</span><b>Flagged</b><span class="muted tiny" id="flagCount">0 saved</span></button>
-          <button class="card mode" data-mode="learn"><span class="mode-icon">💡</span><b>How to solve</b><span class="muted tiny">Strategies for each type</span></button>
+          <button class="card mode" data-mode="learn"><span class="mode-icon">💡</span><b>How to solve</b><span class="muted tiny">Strategies for every type</span></button>
         </div>
-        <div class="card">
-          <div class="row between"><h2>Question types</h2><button id="typeAllBtn" class="btn small ghost">All</button></div>
-          <div id="typeFilter" class="type-groups"></div>
-        </div>
+        <h2 class="sec-head">Sections</h2>
+        <div id="sectionCards" class="section-cards"></div>
       </div>
 
-      <div id="rsMockSetup" hidden>
-        <div class="row between"><h1>Mock CogAT</h1><button class="btn small ghost" data-back="menu">← Back</button></div>
-        <p class="muted">Like the real test: sections are timed, there is no feedback until you finish, and you can skip and come back within a section.</p>
-        <div class="card">
-          <h2>Batteries</h2>
-          <div class="tags" id="mockBatteries"></div>
-          <h2 style="margin-top:1rem">Length</h2>
-          <div class="segmented" role="radiogroup" id="mockLen">
-            <button role="radio" data-len="4" aria-checked="false">Short · 4 per subtest</button>
-            <button role="radio" data-len="8" aria-checked="true">Standard · 8</button>
-            <button role="radio" data-len="12" aria-checked="false">Long · 12</button>
-          </div>
-          <p class="tiny muted" id="mockSummary"></p>
-          <button id="mockStartBtn" class="btn primary wide">Begin mock test</button>
-        </div>
+      <div id="rsSetup" hidden>
+        <div class="row between"><h1 id="setupTitle">Setup</h1><button class="btn small ghost" data-back="menu">← Back</button></div>
+        <p class="muted" id="setupDesc"></p>
+        <div class="card" id="setupBody"></div>
+      </div>
+
+      <div id="rsMistakes" hidden>
+        <div class="row between"><h1>Mistake review</h1><button class="btn small ghost" data-back="menu">← Back</button></div>
+        <p class="muted">Every question you miss is saved here. Redo them until they're gone; a question disappears once you get it right.</p>
+        <div id="mistakeList"></div>
       </div>
 
       <div id="rsLearn" hidden>
@@ -278,17 +290,20 @@
           </div>
         </div>
         <div id="rsSectionBar" class="section-bar" hidden></div>
-        <div class="card question">
-          <span id="rsType" class="tiny muted upper"></span>
-          <h2 id="rsQuestion"></h2>
-          <div id="rsDisplay" class="display"></div>
-          <div id="rsOptions" class="options"></div>
-          <div id="rsFeedback" class="feedback" hidden></div>
-          <div id="rsHelp" class="help" hidden></div>
-          <div class="row gap play-nav">
-            <button id="rsPrevBtn" class="btn ghost" hidden>← Back</button>
-            <button id="rsSkipBtn" class="btn ghost" hidden>Skip</button>
-            <button id="rsNextBtn" class="btn primary" hidden>Next →</button>
+        <div class="play-wrap" id="playWrap">
+          <aside id="rsPassage" class="card passage" hidden></aside>
+          <div class="card question">
+            <span id="rsType" class="tiny muted upper"></span>
+            <h2 id="rsQuestion"></h2>
+            <div id="rsDisplay" class="display"></div>
+            <div id="rsOptions" class="options"></div>
+            <div id="rsFeedback" class="feedback" hidden></div>
+            <div id="rsHelp" class="help" hidden></div>
+            <div class="row gap play-nav">
+              <button id="rsPrevBtn" class="btn ghost" hidden>← Back</button>
+              <button id="rsSkipBtn" class="btn ghost" hidden>Skip</button>
+              <button id="rsNextBtn" class="btn primary" hidden>Next →</button>
+            </div>
           </div>
         </div>
         <p class="tiny muted center hide-touch">Keys: 1–5 or A–E to answer · Enter for next · F to flag</p>
@@ -298,9 +313,11 @@
         <h1 id="rsResultTitle">Round complete</h1>
         <div class="stats">
           <div class="stat"><span>Score</span><b id="rsScore"></b></div>
+          <div class="stat"><span>Accuracy</span><b id="rsPct"></b></div>
           <div class="stat"><span>Time</span><b id="rsTime"></b></div>
           <div class="stat"><span>Per question</span><b id="rsAvg"></b></div>
         </div>
+        <div id="rsEssayNext" class="notice" hidden><b>Next: the essay section.</b> In the real test you'd now write a timed essay on a surprise topic. <button id="rsToEssayBtn" class="btn primary small">Start the timed essay →</button></div>
         <div id="rsBreakdown"></div>
         <div id="rsWrongList"></div>
         <div class="row gap">
@@ -313,17 +330,26 @@
     <!-- ───────────────────────── VOCAB ───────────────────────── -->
     <section id="vocab" class="view" data-view="vocab" hidden>
       <h1>Vocabulary</h1>
-      <p class="muted">Grade 9–10 words that show up in analogies, sentence completion and strong essays.</p>
+      <p class="muted"><span id="vocabTotal">600+</span> words, Greek &amp; Latin roots, flashcards and quizzes. Words you miss come back sooner and more often.</p>
       <div class="stats" id="vocabStats"></div>
-      <div class="segmented" role="tablist" id="vocabTabs">
+      <div class="segmented vtabs" role="tablist" id="vocabTabs">
         <button role="tab" data-vtab="cards" aria-checked="true">Flashcards</button>
         <button role="tab" data-vtab="quiz" aria-checked="false">Quiz</button>
+        <button role="tab" data-vtab="blitz" aria-checked="false">⏱ Blitz</button>
+        <button role="tab" data-vtab="roots" aria-checked="false">Roots</button>
         <button role="tab" data-vtab="list" aria-checked="false">Word list</button>
+      </div>
+      <div class="row gap wrap vcat-row" id="vcatRow">
+        <label class="field inline">Category
+          <select id="vCat" aria-label="Word category"><option value="all">All categories</option></select></label>
+        <label class="check-inline"><input type="checkbox" id="vWeak"> Only my weak words</label>
       </div>
       <div id="vCards" class="vpanel"></div>
       <div id="vQuiz" class="vpanel" hidden></div>
+      <div id="vBlitz" class="vpanel" hidden></div>
+      <div id="vRoots" class="vpanel" hidden></div>
       <div id="vList" class="vpanel" hidden>
-        <input id="vSearch" class="search" placeholder="Search words…" aria-label="Search words">
+        <input id="vSearch" class="search" placeholder="Search words or definitions…" aria-label="Search words">
         <div id="vListBody" class="vlist"></div>
       </div>
     </section>
@@ -337,11 +363,13 @@
         <div id="heatmap" class="heatmap"></div>
       </div>
       <div class="chart-grid">
-        <div class="card"><h2>Reasoning score <span class="muted tiny">— timed mixes &amp; mocks</span></h2><div id="chartScore" class="chart"></div></div>
+        <div class="card"><h2>Score over time <span class="muted tiny">— timed drills &amp; mock tests</span></h2><div id="chartScore" class="chart"></div></div>
         <div class="card"><h2>Speed <span class="muted tiny">— seconds per question</span></h2><div id="chartSpeed" class="chart"></div></div>
-        <div class="card"><h2>CogAT batteries <span class="muted tiny">— accuracy, all modes</span></h2><div id="chartBatteries" class="chart"></div></div>
+        <div class="card"><h2>Accuracy by section</h2><div id="chartBatteries" class="chart"></div></div>
+        <div class="card"><h2>Weakest topics <span class="muted tiny">— practise these next</span></h2><div id="weakTopics"></div></div>
+        <div class="card"><h2>Reading skills</h2><div id="chartSkills" class="chart"></div></div>
         <div class="card"><h2>Essays by type</h2><div id="chartEssays" class="chart"></div></div>
-        <div class="card wide"><h2>Accuracy by question type</h2><div id="chartTypes" class="chart"></div></div>
+        <div class="card wide"><h2>Accuracy by topic</h2><div id="chartTypes" class="chart"></div></div>
       </div>
     </section>
   </main>
@@ -360,9 +388,12 @@
       <label class="field">Daily question goal <input type="number" id="setGoal" min="5" max="200" step="5"></label>
       <hr>
       <h3>AI tutor <span class="tiny muted">(optional)</span></h3>
-      <p class="tiny muted">Transcribes handwriting and gives detailed feedback using Claude. Paste an Anthropic API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. Usage is billed to that key (roughly 5–15¢ per essay). The key is stored only in this browser — never in the cloud or the code.</p>
-      <label class="field">API key <input type="password" id="setApiKey" placeholder="sk-ant-…" autocomplete="off"></label>
-      <div class="row gap wrap"><button type="button" id="saveKeyBtn" class="btn small">Save key</button><button type="button" id="clearKeyBtn" class="btn small ghost">Remove key</button><span id="keyStatus" class="tiny muted"></span></div>
+      <p class="tiny muted">Reads your handwritten essays and gives detailed feedback. Use a <b>Gemini</b> key (free tier available at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>) or an <b>Anthropic</b> key (<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>, roughly 5–15¢ per essay). Keys are stored <b>only in this browser</b> — never in the cloud or the website's code.</p>
+      <label class="field">Gemini key <input type="password" id="setGeminiKey" placeholder="paste your Gemini API key" autocomplete="off"></label>
+      <div class="row gap wrap"><button type="button" id="saveGeminiBtn" class="btn small">Save Gemini key</button><button type="button" id="clearGeminiBtn" class="btn small ghost">Remove</button><span id="geminiStatus" class="tiny muted"></span></div>
+      <label class="field">Anthropic key <input type="password" id="setApiKey" placeholder="sk-ant-…" autocomplete="off"></label>
+      <div class="row gap wrap"><button type="button" id="saveKeyBtn" class="btn small">Save Anthropic key</button><button type="button" id="clearKeyBtn" class="btn small ghost">Remove</button><span id="keyStatus" class="tiny muted"></span></div>
+      <label class="field" id="providerRow" hidden>Use <select id="setProvider"><option value="gemini">Gemini</option><option value="claude">Claude</option></select></label>
       <hr>
       <h3>Backup</h3>
       <div class="row gap wrap">

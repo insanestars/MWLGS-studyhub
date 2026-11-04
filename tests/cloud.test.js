@@ -30,7 +30,7 @@ const errors = [];
 let n = 0; const ok = (m) => console.log(`✓ ${++n}. ${m}`);
 
 async function device(name, opts) {
-  const ctx = await browser.newContext(opts);
+  const ctx = await browser.newContext({ ...opts, serviceWorkers: "block" });
   await ctx.route("https://www.gstatic.com/firebasejs/10.12.2/*", async (r) => {
     const file = new URL(r.request().url()).pathname.split("/").pop();
     r.fulfill({ contentType: "text/javascript", body: await readFile(join(SDK, file)) });
@@ -85,7 +85,8 @@ try {
   await a.page.click("#saveEssayBtn");
   // Timed round
   await a.page.click("a[data-tab=reasoning]");
-  await a.page.click("[data-mode=timed]");
+  await a.page.click(".section-card[data-bat=math] [data-act=timed]");
+  await a.page.click("#goDr"); // 10 timed math questions
   await a.page.click("#rsFlagBtn");
   for (let i = 0; i < 10; i++) { await a.page.click("#rsOptions .opt >> nth=0"); await a.page.click("#rsNextBtn"); }
   await a.page.waitForSelector("#rsResult:not([hidden])");

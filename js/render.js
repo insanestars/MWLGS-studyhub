@@ -33,9 +33,19 @@ export function promptHtml(p) {
   }
 }
 
+// Reading passage panel (paragraphs split on blank lines; poems keep their line breaks).
+export function passageHtml(d) {
+  const poem = /poetry/i.test(d.genre || "");
+  const paras = d.text.split(/\n\s*\n/).map((x) => `<p${poem ? ' class="poem"' : ""}>${escapeHtml(x).replace(/\n/g, poem ? "<br>" : " ")}</p>`).join("");
+  return `<span class="tiny muted upper">${escapeHtml(d.genre || "")}${d.n ? ` · question ${d.n} of ${d.of}` : ""}</span><h3>${escapeHtml(d.title)}</h3><div class="ptext">${paras}</div>`;
+}
+
+// Numbered step-by-step working.
+export const stepsHtml = (steps) => `<ol class="steps">${steps.map((x) => `<li>${t(x)}</li>`).join("")}</ol>`;
+
 export function optionsClass(p) {
   if (p.optionKind === "svg") return "options svg";
-  return p.options.some((o) => String(o).length > 22) ? "options long" : "options";
+  return p.options.some((o) => String(o).length > 22) || p.type === "reading" ? "options long" : "options";
 }
 
 export function optionsHtml(p, { selected = null, reveal = false } = {}) {

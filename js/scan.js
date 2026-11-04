@@ -181,7 +181,7 @@ function updateWords() {
   $("#wordCount").textContent = `${n} word${n === 1 ? "" : "s"}${n ? ` · about ${Math.round(n / 40)} words per minute over 40 min` : ""}`;
 }
 function needKey() {
-  toast("Add your Anthropic API key in Settings to use the AI tutor. Opening settings…", 5000);
+  toast("Add a Gemini or Anthropic API key in Settings to use the AI tutor. Opening settings…", 5000);
   setTimeout(() => $("#accountBtn").click(), 600);
 }
 
@@ -290,8 +290,8 @@ export function openScan(essayId, back) {
     $("#scanPrompt").addEventListener("input", (ev) => (current.prompt = ev.target.value));
   }
   const ai = tutor.hasKey();
-  $("#aiTranscribeBtn").textContent = ai ? "✨ Transcribe with AI tutor" : "✨ AI transcription (add key in Settings)";
-  $("#aiFeedbackBtn").textContent = ai ? "🎓 Ask the AI tutor" : "🎓 AI tutor (add key in Settings)";
+  $("#aiTranscribeBtn").textContent = ai ? `✨ Transcribe with ${tutor.providerName()}` : "✨ AI transcription (add key in Settings)";
+  $("#aiFeedbackBtn").textContent = ai ? `🎓 Ask the AI tutor (${tutor.providerName()})` : "🎓 AI tutor (add key in Settings)";
   renderPages();
   if (e && e.transcript) step(3);
 }

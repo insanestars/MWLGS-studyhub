@@ -56,7 +56,7 @@ const browser = await chromium.launch();
 const errors = [], requests = [];
 let n = 0; const ok = (m) => console.log(`✓ ${++n}. ${m}`);
 try {
-  const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 }, acceptDownloads: true });
+  const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 }, acceptDownloads: true, serviceWorkers: "block" });
   await ctx.route("https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.137.0/+esm", async (r) => r.fulfill({ contentType: "text/javascript", body: await readFile(process.env.SDK_BUNDLE) }));
   await ctx.route("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", async (r) => r.fulfill({ contentType: "text/javascript", body: await readFile(process.env.JSPDF) }));
   await ctx.route("https://api.anthropic.com/**", async (r) => {
@@ -79,7 +79,7 @@ try {
   await page.click("#accountBtn");
   await page.fill("#setApiKey", "sk-ant-test-key-123");
   await page.click("#saveKeyBtn");
-  assert.match(await page.textContent("#keyStatus"), /ready/);
+  assert.match(await page.textContent("#keyStatus"), /saved/);
   await page.click("#accountDialog button[value=close]");
   ok("API key saved locally (Settings → AI tutor)");
 
@@ -157,6 +157,59 @@ try {
   await page.click("#aiFeedbackBtn");
   await page.waitForFunction(() => /API key was rejected/.test(document.querySelector("#feedbackOut").textContent));
   ok("a rejected API key shows a friendly message");
+
+  // ── Gemini provider ──
+  const gReqs = [];
+  let first503 = true;
+  await ctx.route("https://generativelanguage.googleapis.com/**", async (r) => {
+    const req = r.request();
+    if (req.method() === "OPTIONS") return r.fulfill({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "POST" } });
+    const url = req.url(), body = JSON.parse(req.postData());
+    gReqs.push({ url, headers: req.headers(), body });
+    const cors = { "access-control-allow-origin": "*" };
+    // The first model is "overloaded": the site must fall back to the next model.
+    if (first503) { first503 = false; return r.fulfill({ status: 503, headers: { ...cors, "content-type": "application/json" }, body: JSON.stringify({ error: { code: 503, message: "high demand" } }) }); }
+    if (url.includes("streamGenerateContent")) {
+      const isTr = body.contents[0].parts.some((p) => p.inline_data);
+      const text = isTr ? ESSAY : "Start with a surprising fact about phones.";
+      const chunks = text.match(/[\s\S]{1,60}/g).map((t) => `data: ${JSON.stringify({ candidates: [{ content: { role: "model", parts: [{ text: t }] } }] })}\n\n`).join("");
+      return r.fulfill({ status: 200, headers: { ...cors, "content-type": "text/event-stream" }, body: chunks });
+    }
+    return r.fulfill({ status: 200, headers: { ...cors, "content-type": "application/json" }, body: JSON.stringify({ candidates: [{ content: { role: "model", parts: [{ text: JSON.stringify(FEEDBACK), thoughtSignature: "x" }] }, finishReason: "STOP" }] }) });
+  });
+  await page.click("#scanBackBtn");
+  await page.click("#accountBtn");
+  await page.click("#clearKeyBtn");
+  await page.fill("#setGeminiKey", "gemini-test-key-0123456789abcdef");
+  await page.click("#saveGeminiBtn");
+  assert.match(await page.textContent("#geminiStatus"), /saved/);
+  await page.click("#accountDialog button[value=close]");
+  await page.click("#scanOnlyBtn");
+  assert.match(await page.textContent("#aiTranscribeBtn"), /Gemini/);
+  await page.setInputFiles("#uploadInput", [{ name: "page1.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") }]);
+  await page.waitForFunction(() => document.querySelectorAll("#pageList .page").length === 1);
+  await page.click("#aiTranscribeBtn");
+  await page.waitForFunction(() => document.querySelector("#transcript").value.includes("In conclusion"));
+  const g0 = gReqs[0], g1 = gReqs[1];
+  assert.match(g0.url, /gemini-flash-latest:streamGenerateContent\?alt=sse/);
+  assert.match(g1.url, /gemini-3\.5-flash:streamGenerateContent/);
+  assert.equal(g1.headers["x-goog-api-key"], "gemini-test-key-0123456789abcdef");
+  assert.ok(g1.body.contents[0].parts.some((p) => p.inline_data && p.inline_data.mime_type === "image/jpeg"));
+  assert.match(g1.body.systemInstruction.parts[0].text, /transcribe/i);
+  ok("Gemini transcription streams in; falls back from an overloaded model to the next one");
+  await page.selectOption("#scanType", "argumentative");
+  await page.click("#aiFeedbackBtn");
+  await page.waitForSelector("#feedbackOut .rubric");
+  const gf = gReqs.find((x) => x.url.includes(":generateContent"));
+  assert.equal(gf.body.generationConfig.responseMimeType, "application/json");
+  assert.equal(gf.body.generationConfig.responseSchema.type, "OBJECT");
+  assert.ok(gf.body.generationConfig.responseSchema.properties.criteria.items.properties.score.type === "INTEGER");
+  assert.match(await page.textContent("#feedbackOut"), /15\/20/);
+  ok("Gemini feedback uses a JSON response schema and renders the rubric");
+  await page.fill("#chatInput", "How do I start?");
+  await page.click("#chatForm button");
+  await page.waitForFunction(() => /surprising fact/.test(document.querySelector("#chatLog").textContent));
+  ok("Gemini follow-up chat works");
 } finally {
   await browser.close(); server.close();
 }

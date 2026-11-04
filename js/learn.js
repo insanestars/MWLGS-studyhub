@@ -28,6 +28,38 @@ export const STRATEGIES = {
     steps: ["Write the differences between neighbors underneath the series.", "If the differences aren't constant, look at the differences of the differences, or check ×/÷.", "Check for two series alternating (look at every other number).", "Know these: squares, cubes, primes, triangular numbers (1, 3, 6, 10), Fibonacci."],
     eg: "3, 4, 6, 10, 18 → differences 1, 2, 4, 8 (doubling) → next difference 16 → 34."
   },
+  vocabctx: {
+    steps: ["Read the sentence and predict the meaning of the missing word from context clues.", "Look for clue words: because, although, despite, so, but — they tell you if the blank agrees with or contrasts with the rest.", "Check the part of speech: an adjective slot needs an adjective.", "If you don't know a word, break it into roots (bene = good, mal = bad, chron = time)."],
+    eg: "“Despite his size, the dog had a ____ nature.” → contrast with size → gentle → benign."
+  },
+  reading: {
+    steps: ["Skim the passage first for the big idea: who or what is it about, and what is the author saying about it?", "Main idea answers cover the WHOLE passage, not one detail.", "For detail questions, go back and find the exact line — don't rely on memory.", "Inference answers must be supported by the text; eliminate choices that go too far (always, never, all).", "Vocab-in-context: substitute each choice into the sentence; the common meaning is often a trap.", "Tone: look at word choice — praise words, doubt words, emotional words."],
+    eg: "If an answer is true but only describes paragraph 2, it is a detail, not the main idea."
+  },
+  arith: {
+    steps: ["Order of operations: Parentheses, Exponents, Multiply/Divide left to right, Add/Subtract left to right.", "Signs: negative × negative = positive; negative × positive = negative.", "Long multiplication: split one number into tens and ones, multiply separately, then add.", "Long division: take away big chunks of the divisor (×100, ×10) and add up the chunks.", "Mental tricks: 99 × n = 100n − n; 25 × n = n ÷ 4 × 100; 11 × n = 10n + n."],
+    eg: "8 + 3 × 4 − 6 ÷ 2 = 8 + 12 − 3 = 17 (not 41!)."
+  },
+  fdp: {
+    steps: ["Add/subtract fractions: find a common denominator first.", "Multiply fractions: top × top, bottom × bottom. Divide: keep, change, flip.", "Mixed numbers: convert to improper fractions before multiplying or dividing.", "Percent of a number: find 10% (move the decimal) and build from there.", "Percent change = change ÷ ORIGINAL × 100."],
+    eg: "15% of 80: 10% = 8, 5% = 4, so 15% = 12."
+  },
+  ratio: {
+    steps: ["Ratio a:b with total T: each part = T ÷ (a + b).", "Proportions: cross-multiply (a/b = c/d → ad = bc).", "Unit rate: divide to find the cost or amount for ONE.", "Scale factor: big ÷ small, then multiply.", "Distance = speed × time; time = distance ÷ speed."],
+    eg: "Boys:girls = 3:5 with 40 students → 8 parts, 5 per part → 25 girls."
+  },
+  word: {
+    steps: ["Read the question twice; underline what it actually asks for.", "Name the unknown (let x = …) and write an equation from the words.", "“Is” means =, “of” means ×, “more than” means +, “less than” means − (careful with order!).", "Check your answer makes sense (you can't have 3.5 buses — round up!)."],
+    eg: "“A number doubled plus 7 is 31” → 2n + 7 = 31 → n = 12."
+  },
+  algebra: {
+    steps: ["Solve equations by undoing operations in reverse order, doing the same thing to both sides.", "Distribute first, then collect x-terms on one side.", "Inequalities: dividing or multiplying by a negative FLIPS the sign.", "Slope = rise ÷ run = (y₂ − y₁) ÷ (x₂ − x₁); y = mx + b.", "Systems: add or subtract equations to cancel a variable, or substitute.", "Exponents: multiply → add exponents; power of a power → multiply; x⁰ = 1; x⁻ⁿ = 1/xⁿ."],
+    eg: "−3x + 4 > 19 → −3x > 15 → x < −5 (sign flipped)."
+  },
+  geometry: {
+    steps: ["Triangle angles add to 180°; a straight line is 180°; around a point is 360°.", "Pythagorean triples to know: 3-4-5, 5-12-13, 8-15-17, 7-24-25.", "Area: rectangle lw, triangle ½bh, circle πr². Circumference 2πr.", "Volume: box lwh, cylinder πr²h. Double the sides → area ×4, volume ×8."],
+    eg: "Diameter 10 → radius 5 → area 25π."
+  },
   math: {
     steps: ["Underline what the question actually asks for (the largest number? the area? x?).", "Write the equation before calculating.", "Watch for traps: percent changes don't cancel, flip the inequality when dividing by a negative, average speed isn't the average of the speeds.", "Estimate first so you can reject unreasonable answers."],
     eg: "Up 20% then down 20%: 100 → 120 → 96, not 100."

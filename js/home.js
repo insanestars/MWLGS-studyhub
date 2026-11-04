@@ -78,7 +78,7 @@ export function initHome({ startReasoning, practiceType }) {
     if (q && q.dataset.quick !== "essay") {
       e.preventDefault();
       if (q.dataset.quick === "vocab") location.hash = "#vocab";
-      else { location.hash = "#reasoning"; startReasoning(q.dataset.quick === "mix" ? "timed" : "mockSetup"); }
+      else { location.hash = "#reasoning"; startReasoning(q.dataset.quick === "mix" ? "sprintSetup" : "fullSetup"); }
     }
     const p = e.target.closest("[data-practice]");
     if (p) { location.hash = "#reasoning"; practiceType(p.dataset.practice); }

@@ -1,5 +1,6 @@
 import { state, onChange } from "./store.js";
 import { TYPES, BATTERIES } from "./puzzles.js";
+import { SKILLS } from "./gen/reading.js";
 import { $, todayKey, addDays, escapeHtml, fmtDate } from "./util.js";
 
 // ── Streak ───────────────────────────────────────────────────────────────────
@@ -77,12 +78,13 @@ function lineChart(el, points, { yMax, yFmt, empty }) {
 function barChart(el, rows, { max, fmt, empty, color }) {
   if (!rows.length) { el.innerHTML = `<div class="empty">${empty}</div>`; return; }
   const W = Math.max(280, el.clientWidth || 320), rowH = 34, H = rows.length * rowH + 4;
-  const labelW = Math.min(150, W * 0.38), valW = 64, bw = W - labelW - valW;
+  const labelW = Math.min(205, W * 0.44), valW = 64, bw = W - labelW - valW, maxCh = Math.floor((labelW - 6) / 6.3);
+  const fit = (s) => (s.length > maxCh ? s.slice(0, maxCh - 1) + "…" : s);
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img">
     ${rows.map((r, i) => {
       const yy = i * rowH + 6, w = Math.max(r.value > 0 ? 4 : 0, (r.value / (max || 1)) * bw);
       return `<g data-tip="${escapeHtml(r.tip)}">
-        <text class="label" x="0" y="${yy + 15}">${escapeHtml(r.label)}</text>
+        <text class="label" x="0" y="${yy + 15}">${escapeHtml(fit(r.label))}</text>
         <rect x="${labelW}" y="${yy}" width="${bw}" height="20" rx="4" fill="var(--surface-2)"/>
         <rect x="${labelW}" y="${yy}" width="${w}" height="20" rx="4" fill="${r.color || color || "var(--series-1)"}"/>
         <text class="val" x="${W}" y="${yy + 15}" text-anchor="end">${escapeHtml(fmt(r))}</text>
@@ -97,7 +99,8 @@ function render() {
   if ($("#progress").hidden) return;
   const { essays, rounds, activeDays } = state;
   const streak = computeStreak(activeDays);
-  const timed = rounds.filter((r) => r.mode === "timed" || r.mode === "mock");
+  const TIMED = new Set(["timed", "mock", "drill", "full", "cogat"]);
+  const timed = rounds.filter((r) => TIMED.has(r.mode));
   const checked = essays.filter((e) => e.score != null && e.max);
   const avgEssay = checked.length ? checked.reduce((a, e) => a + e.score / e.max, 0) / checked.length * 5 : null;
   const tutored = essays.filter((e) => e.feedback);
@@ -105,14 +108,14 @@ function render() {
   const recent = timed.slice(-5);
   const recentPct = recent.length ? Math.round(recent.reduce((a, r) => a + r.correct / r.total, 0) / recent.length * 100) : null;
   const totalQ = rounds.reduce((a, r) => a + (r.answered ?? r.total), 0);
-  const mocks = rounds.filter((r) => r.mode === "mock");
+  const mocks = rounds.filter((r) => r.mode === "mock" || r.mode === "full" || r.mode === "cogat");
   const bestMock = mocks.length ? Math.max(...mocks.map((r) => Math.round((r.correct / r.total) * 100))) : null;
   const mastered = Object.values(state.vocab || {}).filter((v) => v.box >= 4).length;
 
   $("#statTiles").innerHTML = [
     ["Daily streak", `🔥 ${streak.current}`, streak.doneToday ? `Done today · best ${streak.best}` : streak.current ? `Practise today to keep it! · best ${streak.best}` : `Best ${streak.best}`],
     ["Reasoning", recentPct == null ? "—" : `${recentPct}%`, `last ${recent.length || 0} timed rounds · ${totalQ} questions total`],
-    ["Best mock CogAT", bestMock == null ? "—" : `${bestMock}%`, `${mocks.length} mock test${mocks.length === 1 ? "" : "s"} taken`],
+    ["Best mock test", bestMock == null ? "—" : `${bestMock}%`, `${mocks.length} mock test${mocks.length === 1 ? "" : "s"} taken`],
     ["Essays written", essays.length, `${essays.filter((e) => e.type === "narrative").length} narrative · ${essays.filter((e) => e.type === "argumentative").length} argumentative`],
     ["Avg checklist", avgEssay == null ? "—" : `${avgEssay.toFixed(1)}/5`, `self-check · ${checked.length} essays`],
     ["Avg tutor score", avgTutor == null ? "—" : `${avgTutor.toFixed(1)}/20`, `${tutored.length} essay${tutored.length === 1 ? "" : "s"} reviewed`],
@@ -135,7 +138,7 @@ function render() {
   const last = timed.slice(-30);
   const pts = (fn) => last.map((r) => ({ label: new Date(r.date).toLocaleDateString(undefined, { day: "numeric", month: "short" }), ...fn(r) }));
   lineChart($("#chartScore"), pts((r) => ({ y: (r.correct / r.total) * 100, tip: `${fmtDate(r.date)}: ${r.correct}/${r.total} (${Math.round(r.correct / r.total * 100)}%)` })),
-    { yMax: 100, yFmt: (v) => `${Math.round(v)}%`, empty: "Finish a timed mix or mock test to see your score trend." });
+    { yMax: 100, yFmt: (v) => `${Math.round(v)}%`, empty: "Finish a timed drill or mock test to see your score trend." });
   lineChart($("#chartSpeed"), pts((r) => ({ y: r.avgSeconds || r.seconds / r.total, tip: `${fmtDate(r.date)}: ${(r.avgSeconds || r.seconds / r.total).toFixed(1)}s per question` })),
     { yFmt: (v) => `${Math.round(v)}s`, empty: "Finish a timed round to see your speed. Lower is faster." });
 
@@ -168,6 +171,14 @@ function render() {
     label: TYPES[t].name, value: agg[t].c / agg[t].t * 100, color: `var(--${BATTERIES[TYPES[t].battery].color})`, tip: `${agg[t].c} of ${agg[t].t} correct`
   })).sort((a, b) => a.value - b.value);
   barChart($("#chartTypes"), typeRows, { max: 100, fmt: (r) => `${Math.round(r.value)}%`, empty: "Answer some puzzles to see which types need work." });
+  // Weakest topics (at least 4 answers) and reading skills.
+  const weak = Object.keys(agg).filter((t) => TYPES[t] && agg[t].t >= 4).map((t) => ({ t, p: agg[t].c / agg[t].t })).sort((a, b) => a.p - b.p).slice(0, 5);
+  $("#weakTopics").innerHTML = weak.length ? weak.map((w) => `<div class="focus-row"><span><b>${TYPES[w.t].name}</b><br><span class="tiny muted">${BATTERIES[TYPES[w.t].battery].short} · ${Math.round(w.p * 100)}% of ${agg[w.t].t}</span></span><button class="btn small" data-practice="${w.t}">Practice</button></div>`).join("")
+    : `<p class="muted">Answer at least 4 questions in a topic to see your weak spots.</p>`;
+  const sk = {};
+  for (const r of rounds) for (const [k, v] of Object.entries(r.bySkill || {})) { sk[k] = sk[k] || { c: 0, t: 0 }; sk[k].c += v.c; sk[k].t += v.t; }
+  barChart($("#chartSkills"), Object.keys(SKILLS).filter((k) => sk[k]).map((k) => ({ label: SKILLS[k], value: (sk[k].c / sk[k].t) * 100, color: "var(--series-4)", tip: `${sk[k].c} of ${sk[k].t} correct` })),
+    { max: 100, fmt: (r) => `${Math.round(r.value)}%`, empty: "Answer some reading questions to see main idea, inference, tone and vocab-in-context accuracy." });
   const legend = Object.values(BATTERIES).map((i) => `<span><i style="background:var(--${i.color})"></i>${i.name}</span>`).join("");
   if (typeRows.length) $("#chartTypes").insertAdjacentHTML("beforeend", `<div class="legend">${legend}</div>`);
 }

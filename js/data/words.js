@@ -113,6 +113,49 @@ export const RELATIONS = [
     ["hurricane", "storm"], ["democracy", "government"], ["copper", "metal"], ["ruby", "gemstone"],
     ["python", "snake"], ["mitochondrion", "organelle"], ["sonata", "composition"], ["tango", "dance"],
     ["haiku", "verse"], ["rhombus", "quadrilateral"], ["neon", "gas"], ["thesaurus", "reference"], ["satire", "genre"]
+  ] },
+  { id: "gender", label: "male → female", pairs: [
+    ["stallion", "mare"], ["rooster", "hen"], ["bull", "cow"], ["ram", "ewe"], ["gander", "goose"], ["drake", "duck"],
+    ["buck", "doe"], ["king", "queen"], ["nephew", "niece"], ["prince", "princess"], ["husband", "wife"], ["uncle", "aunt"],
+    ["son", "daughter"], ["monk", "nun"], ["lion", "lioness"], ["emperor", "empress"], ["wizard", "witch"], ["groom", "bride"]
+  ] },
+  { id: "roles", fuzzy: true, label: "role → its partner role", pairs: [
+    ["teacher", "student"], ["doctor", "patient"], ["host", "guest"], ["employer", "employee"], ["landlord", "tenant"],
+    ["author", "reader"], ["predator", "prey"], ["coach", "athlete"], ["lawyer", "client"], ["performer", "audience"],
+    ["mentor", "apprentice"], ["candidate", "voter"], ["merchant", "customer"]
+  ] },
+  { id: "unit", label: "unit → what it measures", pairs: [
+    ["meter", "length"], ["liter", "volume"], ["gram", "mass"], ["hour", "time"], ["acre", "area"], ["decibel", "loudness"],
+    ["calorie", "energy"], ["knot", "speed"], ["byte", "data"], ["volt", "voltage"], ["mile", "distance"], ["carat", "purity"]
+  ] },
+  { id: "material", fuzzy: true, label: "product → what it is made from", pairs: [
+    ["cheese", "milk"], ["bread", "flour"], ["glass", "sand"], ["wine", "grapes"], ["butter", "cream"], ["steel", "iron"],
+    ["linen", "flax"], ["sweater", "wool"], ["candle", "wax"], ["brick", "clay"], ["paper", "pulp"], ["raisin", "grape"],
+    ["tofu", "soybeans"], ["chocolate", "cacao"]
+  ] },
+  { id: "toolact", fuzzy: true, label: "tool → what you do with it", pairs: [
+    ["scissors", "cut"], ["broom", "sweep"], ["pen", "write"], ["shovel", "dig"], ["needle", "sew"], ["oven", "bake"],
+    ["ladder", "climb"], ["eraser", "erase"], ["whistle", "signal"], ["rake", "gather"], ["oar", "row"], ["lock", "secure"]
+  ] },
+  { id: "container", fuzzy: true, label: "container → what it holds", pairs: [
+    ["quiver", "arrows"], ["vase", "flowers"], ["wallet", "money"], ["envelope", "letter"], ["sheath", "sword"],
+    ["aquarium", "fish"], ["bookcase", "books"], ["silo", "grain"], ["reservoir", "water"], ["pod", "peas"],
+    ["portfolio", "drawings"], ["decanter", "wine"], ["scabbard", "blade"]
+  ] },
+  { id: "quality", fuzzy: true, label: "thing → its typical quality", pairs: [
+    ["lemon", "sour"], ["sugar", "sweet"], ["ice", "cold"], ["feather", "light"], ["lead", "heavy"], ["glass", "transparent"],
+    ["velvet", "soft"], ["sandpaper", "rough"], ["desert", "dry"], ["honey", "sticky"], ["snow", "white"], ["coal", "black"],
+    ["razor", "sharp"], ["rubber", "elastic"]
+  ] },
+  { id: "sequence", label: "comes just before", pairs: [
+    ["January", "February"], ["spring", "summer"], ["Monday", "Tuesday"], ["infancy", "childhood"],
+    ["first", "second"], ["seed", "sprout"], ["caterpillar", "chrysalis"], ["egg", "chick"], ["breakfast", "lunch"],
+    ["freshman", "sophomore"], ["prologue", "chapter"], ["Wednesday", "Thursday"], ["autumn", "winter"], ["April", "May"]
+  ] },
+  { id: "person", label: "field → person who practices it", pairs: [
+    ["astronomy", "astronomer"], ["botany", "botanist"], ["chemistry", "chemist"], ["poetry", "poet"], ["sculpture", "sculptor"],
+    ["law", "lawyer"], ["medicine", "physician"], ["journalism", "journalist"], ["architecture", "architect"], ["photography", "photographer"],
+    ["economics", "economist"], ["history", "historian"], ["music", "musician"], ["philosophy", "philosopher"]
   ] }
 ];
 
@@ -165,7 +208,29 @@ export const CATEGORIES = {
   "words meaning to ease": { words: ["alleviate", "mitigate", "relieve", "soothe", "assuage", "allay"], near: ["words meaning to make worse"] },
   "organs of the body": { words: ["liver", "kidney", "pancreas", "spleen", "lung", "heart", "stomach", "brain"] },
   "currencies": { words: ["dollar", "euro", "yen", "peso", "rupee", "franc", "pound", "krona"] },
-  "dances": { words: ["waltz", "tango", "salsa", "foxtrot", "ballet", "polka", "rumba", "flamenco"] }
+  "dances": { words: ["waltz", "tango", "salsa", "foxtrot", "ballet", "polka", "rumba", "flamenco"] },
+  "fabrics": { words: ["cotton", "silk", "wool", "linen", "denim", "velvet", "satin", "polyester"] },
+  "spices": { words: ["cinnamon", "nutmeg", "paprika", "cumin", "saffron", "turmeric", "cardamom", "cloves"] },
+  "vegetables": { words: ["carrot", "broccoli", "spinach", "celery", "cabbage", "lettuce", "potato", "onion"] },
+  "trees": { words: ["oak", "maple", "birch", "willow", "cedar", "pine", "elm", "spruce"] },
+  "flowers": { words: ["tulip", "daisy", "orchid", "lily", "rose", "daffodil", "carnation", "sunflower"] },
+  "rivers": { words: ["Nile", "Amazon", "Mississippi", "Yangtze", "Danube", "Thames", "Ganges", "Volga"], near: ["capital cities"] },
+  "capital cities": { words: ["Paris", "Tokyo", "Cairo", "Ottawa", "Canberra", "Nairobi", "Lima", "Madrid"], near: ["rivers"] },
+  "continents": { words: ["Africa", "Asia", "Europe", "Antarctica", "Australia", "Oceania", "North America", "South America"] },
+  "dog breeds": { words: ["beagle", "poodle", "terrier", "collie", "dachshund", "retriever", "bulldog", "husky"] },
+  "footwear": { words: ["sandal", "boot", "sneaker", "slipper", "loafer", "moccasin", "clog"], near: ["hats"] },
+  "hats": { words: ["beret", "fedora", "sombrero", "bonnet", "beanie", "turban", "bowler"], near: ["footwear"] },
+  "words meaning sad": { words: ["melancholy", "forlorn", "despondent", "glum", "sorrowful", "dejected", "morose", "downcast"], near: ["words meaning happy", "words meaning angry"] },
+  "words meaning honest": { words: ["candid", "frank", "sincere", "truthful", "forthright", "genuine"], near: ["words meaning secretive"] },
+  "words meaning stubborn": { words: ["obstinate", "headstrong", "inflexible", "adamant", "unyielding", "mulish"], near: ["words meaning brave"] },
+  "words meaning wise": { words: ["sage", "sagacious", "prudent", "judicious", "astute", "shrewd"], near: ["words meaning talkative"] },
+  "words meaning beginner": { words: ["novice", "apprentice", "rookie", "trainee", "neophyte", "newcomer"] },
+  "parts of a plant": { words: ["root", "stem", "leaf", "petal", "seed", "bud", "thorn", "pollen"] },
+  "parts of the eye": { words: ["retina", "iris", "pupil", "cornea", "eyelid", "eyelash"], near: ["organs of the body"] },
+  "birds of prey": { words: ["hawk", "falcon", "eagle", "osprey", "kestrel", "vulture", "condor"], near: ["mammals"] },
+  "sea creatures without bones": { words: ["jellyfish", "octopus", "squid", "starfish", "clam", "oyster", "sea urchin"], near: ["fish"] },
+  "kitchen tools": { words: ["whisk", "ladle", "spatula", "colander", "tongs", "grater", "peeler"] },
+  "branches of government": { words: ["legislative", "executive", "judicial"] }
 };
 
 // ── Vocabulary list (flashcards & quizzes) ───────────────────────────────────

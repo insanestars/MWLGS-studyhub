@@ -17,7 +17,7 @@ const MAX_MISTAKES = 150;
 export const isConfigured = !!(firebaseConfig && firebaseConfig.apiKey &&
   !String(firebaseConfig.apiKey).startsWith("PASTE"));
 
-export const DEFAULT_SETTINGS = { sound: true, level: 2, dailyGoal: 30, examDate: "" };
+export const DEFAULT_SETTINGS = { sound: true, level: 2, dailyGoal: 30, examDate: "", essayMinutes: 40 };
 const empty = () => ({ essays: [], rounds: [], mistakes: [], flags: [], activeDays: [], daily: {}, vocab: {}, settings: { ...DEFAULT_SETTINGS } });
 
 export const state = empty();
@@ -247,4 +247,20 @@ export async function importData(json) {
   state.vocab = { ...(d.vocab || {}), ...state.vocab };
   backend.saveMeta();
   replaceState({ ...state });
+}
+
+// ── Seen questions (this device only) — lets generators prefer new questions ──
+const SEEN_KEY = "studyhub:seen";
+let seen = null;
+export function seenSet() {
+  if (!seen) { try { seen = new Set(JSON.parse(localStorage.getItem(SEEN_KEY)) || []); } catch { seen = new Set(); } }
+  return seen;
+}
+export function markSeen(key) {
+  const s = seenSet();
+  if (s.has(key)) return;
+  s.add(key);
+  if (s.size > 20000) { const keep = [...s].slice(-15000); s.clear(); keep.forEach((k) => s.add(k)); }
+  clearTimeout(markSeen.t);
+  markSeen.t = setTimeout(() => { try { localStorage.setItem(SEEN_KEY, JSON.stringify([...s])); } catch { /* storage full: ignore */ } }, 1500);
 }

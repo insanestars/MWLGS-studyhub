@@ -7,6 +7,8 @@ import { initHome } from "./home.js";
 import { initVocab } from "./vocab.js";
 import { DEFS_SVG } from "./gen/draw.js";
 import * as tutor from "./tutor.js";
+import { hasGeminiKey, setGeminiKey } from "./gemini.js";
+import { startSurpriseEssay } from "./essay.js";
 
 const GUEST_FLAG = "studyhub:guest-mode";
 document.body.insertAdjacentHTML("afterbegin", DEFS_SVG); // shared SVG patterns for puzzles
@@ -66,8 +68,13 @@ function renderAccount() {
   $("#setExamDate").value = store.state.settings.examDate || "";
   $("#setGoal").value = store.state.settings.dailyGoal || 30;
   $("#setApiKey").value = "";
-  $("#setApiKey").placeholder = tutor.hasKey() ? "•••••• key saved — paste to replace" : "sk-ant-…";
-  $("#keyStatus").textContent = tutor.hasKey() ? "✓ AI tutor ready" : "No key saved";
+  $("#setApiKey").placeholder = tutor.hasClaudeKey() ? "•••••• saved — paste to replace" : "sk-ant-…";
+  $("#keyStatus").textContent = tutor.hasClaudeKey() ? "✓ saved" : "";
+  $("#setGeminiKey").value = "";
+  $("#setGeminiKey").placeholder = hasGeminiKey() ? "•••••• saved — paste to replace" : "paste your Gemini API key";
+  $("#geminiStatus").textContent = hasGeminiKey() ? "✓ saved" : "";
+  $("#providerRow").hidden = !(hasGeminiKey() && tutor.hasClaudeKey());
+  $("#setProvider").value = tutor.getProvider() || "gemini";
 }
 $("#accountBtn").addEventListener("click", () => { renderAccount(); $("#accountDialog").showModal(); });
 $("#setExamDate").addEventListener("change", (e) => store.setSetting("examDate", e.target.value));
@@ -77,7 +84,14 @@ $("#saveKeyBtn").addEventListener("click", () => {
   if (!k.startsWith("sk-")) return toast("That doesn't look like an Anthropic API key (it starts with sk-ant-).");
   tutor.setKey(k); renderAccount(); toast("API key saved on this device ✓");
 });
-$("#clearKeyBtn").addEventListener("click", () => { tutor.setKey(""); renderAccount(); toast("API key removed"); });
+$("#clearKeyBtn").addEventListener("click", () => { tutor.setKey(""); renderAccount(); toast("Anthropic key removed"); });
+$("#saveGeminiBtn").addEventListener("click", () => {
+  const k = $("#setGeminiKey").value.trim();
+  if (k.length < 20) return toast("That doesn't look like a complete Gemini API key.");
+  setGeminiKey(k); renderAccount(); toast("Gemini key saved on this device ✓ — the AI reader is ready.");
+});
+$("#clearGeminiBtn").addEventListener("click", () => { setGeminiKey(""); renderAccount(); toast("Gemini key removed"); });
+$("#setProvider").addEventListener("change", (e) => { tutor.setProvider(e.target.value); toast(`Using ${tutor.providerName()} for the AI tutor`); });
 $("#exportBtn").addEventListener("click", () => {
   const blob = new Blob([store.exportData()], { type: "application/json" });
   const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `studyhub-backup-${todayKey()}.json` });
@@ -131,10 +145,14 @@ store.onChange((s) => {
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 initEssay();
-initReasoning();
+initReasoning({ startEssay: startSurpriseEssay });
 initProgress();
 initVocab();
 initHome({ startReasoning, practiceType: practiceOnly });
+document.querySelector("#progress").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-practice]");
+  if (b) { location.hash = "#reasoning"; practiceOnly(b.dataset.practice); }
+});
 
 if (!store.isConfigured) {
   store.useLocal(); showApp(); renderAccount();
@@ -164,4 +182,9 @@ if (!store.isConfigured) {
     $("#loginError").textContent = "Couldn't reach Firebase. You can still continue without signing in.";
     $("#loginError").hidden = false;
   });
+}
+
+// Offline support (installable app). Network-first, so updates show up right away when online.
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
