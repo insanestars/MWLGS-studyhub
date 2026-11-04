@@ -19,6 +19,8 @@
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --series-3: #1baf7a;
+  --series-4: #c98500;
+  --series-5: #d55181;
   --grid: #e7e9f0;
   --shadow: 0 1px 2px rgba(20, 22, 28, .06), 0 4px 16px rgba(20, 22, 28, .05);
   --radius: 16px;
@@ -31,7 +33,7 @@
     --text: #eef0f5; --text-2: #c2c6d2; --muted: #9096a6;
     --accent: #7b91ff; --accent-ink: #0f1115; --accent-soft: #252c4d;
     --good: #3fcf8e; --good-soft: #15332a; --bad: #ff7b7b; --bad-soft: #3a1d20; --warn: #f0b44c;
-    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --grid: #262a33;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #eda100; --series-5: #e87ba4; --grid: #262a33;
     --shadow: 0 1px 2px rgba(0, 0, 0, .4);
   }
 }
@@ -41,7 +43,7 @@
   --text: #eef0f5; --text-2: #c2c6d2; --muted: #9096a6;
   --accent: #7b91ff; --accent-ink: #0f1115; --accent-soft: #252c4d;
   --good: #3fcf8e; --good-soft: #15332a; --bad: #ff7b7b; --bad-soft: #3a1d20; --warn: #f0b44c;
-  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --grid: #262a33;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #eda100; --series-5: #e87ba4; --grid: #262a33;
   --shadow: 0 1px 2px rgba(0, 0, 0, .4);
 }
 
@@ -495,3 +497,53 @@ svg.group { width: 100%; height: auto; max-height: 64px; }
 .scales svg.scale { width: clamp(160px, 42vw, 230px); }
 @media (max-width: 560px) { .scales svg.scale { width: 100%; max-width: 330px; } }
 svg.group { max-height: 72px; }
+
+/* ── v3: sections, passages, steps ────────────────────────────────────────── */
+.sec-head { margin-top: 1.4rem; }
+.section-cards { display: grid; gap: .9rem; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .section-cards { grid-template-columns: 1fr 1fr; } }
+.section-card { margin: 0; display: flex; flex-direction: column; gap: .7rem; }
+.section-card h3 { margin: 0; display: flex; align-items: center; gap: .5rem; font-size: 1.02rem; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.tag .acc { font-size: .72rem; font-weight: 700; color: var(--good); margin-left: .2rem; }
+.tag .acc.low { color: var(--bad); }
+.sec-actions { margin-top: auto; }
+.sec-list { padding-left: 1.2rem; margin: .2rem 0 1rem; }
+.sec-list li { margin: .3rem 0; }
+.play-wrap { display: grid; gap: 1rem; }
+.play-wrap .question { margin: 0; }
+.play-wrap.with-passage { grid-template-columns: 1fr; }
+@media (min-width: 900px) {
+  main:has(.play-wrap.with-passage:not([hidden])) { max-width: 1240px; }
+  .play-wrap.with-passage { grid-template-columns: 1.1fr 1fr; align-items: start; }
+  .passage { position: sticky; top: 76px; max-height: calc(100vh - 100px); overflow-y: auto; }
+}
+@media (max-width: 899px) { .passage { max-height: 46vh; overflow-y: auto; } }
+.passage { margin: 0; }
+.passage h3 { margin: .2rem 0 .6rem; font-size: 1.1rem; }
+.ptext p { font-family: ui-serif, Georgia, "Times New Roman", serif; font-size: 1.04rem; line-height: 1.7; margin: 0 0 .9rem; }
+.ptext p.poem { line-height: 1.9; }
+.steps { margin: .5rem 0 0; padding-left: 1.3rem; }
+.steps li { margin: .3rem 0; }
+.feedback .steps { color: var(--text); }
+.res-q details { font-size: .9rem; }
+.res-q details .ptext p { font-size: .95rem; }
+.segmented.cats5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 620px) { .segmented.cats5 { grid-template-columns: repeat(3, 1fr); } }
+.essay-opts { margin-top: .8rem; align-items: center; }
+.field.inline { margin: 0; gap: .5rem; font-weight: 600; }
+.field.inline select { padding: .4rem .6rem; }
+.check-inline { display: inline-flex; align-items: center; gap: .45rem; font-weight: 600; cursor: pointer; }
+.check-inline input { width: 18px; height: 18px; accent-color: var(--accent); }
+.type-along { text-align: left; margin-top: .8rem; background: var(--surface-2); border-radius: 12px; padding: .6rem .9rem; }
+.type-along summary { cursor: pointer; font-weight: 600; }
+.type-along textarea { font-family: ui-serif, Georgia, serif; font-size: 1rem; line-height: 1.6; }
+.timer-screen.focus .type-along, .timer-screen:fullscreen .type-along { max-width: 900px; margin: .6rem auto 0; width: 100%; }
+.vtabs { grid-template-columns: repeat(5, 1fr); max-width: 640px; }
+@media (max-width: 520px) { .vtabs button { font-size: .8rem; padding: .5rem .1rem; } }
+.vcat-row { margin-top: .8rem; align-items: center; }
+.big-word { font-size: 1.7rem !important; }
+.roots { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); margin-bottom: 1rem; }
+.root { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .6rem .8rem; display: flex; flex-direction: column; gap: .1rem; }
+.root b { font-size: 1.05rem; color: var(--accent); }
+.root small { color: var(--muted); }

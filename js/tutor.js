@@ -5,6 +5,8 @@
 // (Browser use requires `dangerouslyAllowBrowser: true` — acceptable here because the key
 // belongs to the person using the page and never leaves their device except to Anthropic.)
 
+import { hasGeminiKey, geminiText, geminiStream, imagePart, GeminiError } from "./gemini.js";
+
 const SDK_URL = "https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.137.0/+esm";
 const MODEL = "claude-opus-5-5";
 // Server-side fallback: if a request is declined, the API retries it on a fallback model.
@@ -13,16 +15,18 @@ const KEY_STORE = "studyhub:anthropicKey";
 
 export const getKey = () => { try { return localStorage.getItem(KEY_STORE) || ""; } catch { return ""; } };
 export const setKey = (k) => { try { k ? localStorage.setItem(KEY_STORE, k.trim()) : localStorage.removeItem(KEY_STORE); } catch { /* ignore */ } };
-export const hasKey = () => getKey().startsWith("sk-");
+export const hasClaudeKey = () => getKey().startsWith("sk-");
 
 let sdk = null;
 async function getClient() {
-  if (!hasKey()) throw new Error("Add your Anthropic API key in Settings (👤 → AI tutor) to use the AI tutor.");
+  if (!hasClaudeKey()) throw new Error("Add your Anthropic API key in Settings (👤 → AI tutor) to use the AI tutor.");
   sdk = sdk || (await import(SDK_URL)).default;
   return new sdk({ apiKey: getKey(), dangerouslyAllowBrowser: true, maxRetries: 2 });
 }
 
 export function friendlyError(e) {
+  const g = friendlyGeminiError(e);
+  if (g) return g;
   const A = sdk;
   if (A && e instanceof A.AuthenticationError) return "Your API key was rejected. Check it in Settings.";
   if (A && e instanceof A.PermissionDeniedError) return "This API key doesn't have permission for that model.";
@@ -46,7 +50,7 @@ If the student wrote the prompt or a plan/outline at the top, leave it out and t
 Reply with the essay text only — no title, notes or commentary.`;
 
 // pages: [{ type: "image/jpeg", data: base64 }]
-export async function transcribe(pages, onText) {
+async function claudeTranscribe(pages, onText) {
   const client = await getClient();
   const content = [];
   pages.forEach((p, i) => {
@@ -72,7 +76,7 @@ export const RUBRICS = {
 
 const str = { type: "string" };
 const obj = (props) => ({ type: "object", additionalProperties: false, required: Object.keys(props), properties: props });
-const FEEDBACK_SCHEMA = obj({
+export const FEEDBACK_SCHEMA = obj({
   summary: str,
   criteria: { type: "array", items: obj({ name: str, score: { type: "integer" }, comment: str }) },
   strengths: { type: "array", items: str },
@@ -94,32 +98,37 @@ Be specific: quote the student's own words when pointing to strengths and proble
 Ignore spelling slips that look like transcription errors. Keep the tone warm and direct, and write for a 14-year-old.`;
 }
 
-export async function feedback({ text, type, prompt }) {
+async function claudeFeedback({ text, type, prompt }) {
   const client = await getClient();
   const stream = client.beta.messages.stream({
     ...BASE, max_tokens: 32000, output_config: { effort: "high", format: { type: "json_schema", schema: FEEDBACK_SCHEMA } },
     system: feedbackSystem(type),
-    messages: [{ role: "user", content: `Essay prompt: ${prompt || "(not given)"}\n\nStudent's essay:\n"""\n${text}\n"""` }]
+    messages: [{ role: "user", content: essayMessage(text, prompt) }]
   });
   const msg = await stream.finalMessage();
   checkStop(msg);
   if (msg.stop_reason === "max_tokens") throw new Error("The feedback was cut off. Please try again.");
-  const data = JSON.parse(textOf(msg));
+  return normalize(JSON.parse(textOf(msg)), type);
+}
+
+// Clamp scores, keep rubric names in order, add totals.
+function normalize(data, type) {
   data.criteria = RUBRICS[type].map((name, i) => {
-    const c = data.criteria.find((x) => x.name === name) || data.criteria[i] || { score: 2, comment: "" };
-    return { name, score: Math.max(1, Math.min(4, Math.round(c.score))), comment: c.comment };
+    const c = (data.criteria || []).find((x) => x.name === name) || (data.criteria || [])[i] || { score: 2, comment: "" };
+    return { name, score: Math.max(1, Math.min(4, Math.round(Number(c.score) || 2))), comment: c.comment || "" };
   });
+  for (const k of ["strengths", "improvements", "line_edits", "vocabulary"]) data[k] = data[k] || [];
+  data.revised_excerpt = data.revised_excerpt || { original: "", rewritten: "", what_changed: "" };
   data.total = data.criteria.reduce((a, c) => a + c.score, 0);
   data.max = data.criteria.length * 4;
   data.date = new Date().toISOString();
   return data;
 }
+const essayMessage = (text, prompt) => `Essay prompt: ${prompt || "(not given)"}\n\nStudent's essay:\n"""\n${text}\n"""`;
 
 // ── Follow-up chat ───────────────────────────────────────────────────────────
-// history: [{ role: "user" | "assistant", content: string }]
-export async function chat({ text, type, prompt, feedbackSummary, history, onText }) {
-  const client = await getClient();
-  const system = `You are a friendly writing tutor for a 14-year-old preparing for a timed ${type} essay on a high school entrance exam. Answer their questions about their essay below. Be concise (under 200 words unless they ask for more), concrete, and quote their writing when useful. Don't rewrite the whole essay for them — show short examples and let them do the writing.
+function chatSystem({ text, type, prompt, feedbackSummary }) {
+  return `You are a friendly writing tutor for a 14-year-old preparing for a timed ${type} essay on a high school entrance exam. Answer their questions about their essay below. Be concise (under 200 words unless they ask for more), concrete, and quote their writing when useful. Don't rewrite the whole essay for them — show short examples and let them do the writing.
 
 Prompt: ${prompt || "(not given)"}
 ${feedbackSummary ? `Earlier feedback summary: ${feedbackSummary}\n` : ""}
@@ -127,9 +136,58 @@ Their essay:
 """
 ${text}
 """`;
+}
+// history: [{ role: "user" | "assistant", content: string }]
+async function claudeChat({ text, type, prompt, feedbackSummary, history, onText }) {
+  const client = await getClient();
+  const system = chatSystem({ text, type, prompt, feedbackSummary });
   const stream = client.beta.messages.stream({ ...BASE, max_tokens: 8000, output_config: { effort: "low" }, system, messages: history });
   if (onText) stream.on("text", onText);
   const msg = await stream.finalMessage();
   checkStop(msg);
   return textOf(msg);
+}
+
+// ── Gemini provider ──────────────────────────────────────────────────────────
+
+async function geminiTranscribe(pages, onText) {
+  const parts = [];
+  pages.forEach((p, i) => { if (pages.length > 1) parts.push({ text: `Page ${i + 1} of ${pages.length}:` }); parts.push(imagePart(p)); });
+  parts.push({ text: "Transcribe this essay." });
+  return (await geminiStream({ system: TRANSCRIBE_SYSTEM, contents: [{ role: "user", parts }] }, onText)).trim();
+}
+async function geminiFeedback({ text, type, prompt }) {
+  const out = await geminiText({ system: feedbackSystem(type), schema: FEEDBACK_SCHEMA, contents: [{ role: "user", parts: [{ text: essayMessage(text, prompt) }] }] });
+  return normalize(JSON.parse(out), type);
+}
+async function geminiChat({ text, type, prompt, feedbackSummary, history, onText }) {
+  const contents = history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] }));
+  return geminiStream({ system: chatSystem({ text, type, prompt, feedbackSummary }), contents }, onText);
+}
+
+// ── Provider choice ──────────────────────────────────────────────────────────
+const PROVIDER_STORE = "studyhub:aiProvider";
+export function getProvider() {
+  let p = "";
+  try { p = localStorage.getItem(PROVIDER_STORE) || ""; } catch { /* ignore */ }
+  if (p === "claude" && hasClaudeKey()) return "claude";
+  if (p === "gemini" && hasGeminiKey()) return "gemini";
+  return hasGeminiKey() ? "gemini" : hasClaudeKey() ? "claude" : "";
+}
+export const setProvider = (p) => { try { localStorage.setItem(PROVIDER_STORE, p); } catch { /* ignore */ } };
+export const hasKey = () => !!getProvider();
+export const providerName = () => ({ claude: "Claude", gemini: "Gemini" }[getProvider()] || "AI");
+
+const noKey = () => { throw new Error("Add a Gemini or Anthropic API key in Settings (👤 → AI tutor) to use the AI tutor."); };
+export const transcribe = (pages, onText) => (getProvider() === "gemini" ? geminiTranscribe(pages, onText) : getProvider() === "claude" ? claudeTranscribe(pages, onText) : noKey());
+export const feedback = (args) => (getProvider() === "gemini" ? geminiFeedback(args) : getProvider() === "claude" ? claudeFeedback(args) : noKey());
+export const chat = (args) => (getProvider() === "gemini" ? geminiChat(args) : getProvider() === "claude" ? claudeChat(args) : noKey());
+
+export function friendlyGeminiError(e) {
+  if (!(e instanceof GeminiError)) return null;
+  if (e.status === 400 && /API key/i.test(e.message)) return "Your Gemini API key was rejected. Check it in Settings.";
+  if (e.status === 401 || e.status === 403) return "Your Gemini API key was rejected or lacks permission. Check it in Settings.";
+  if (e.status === 429) return "Gemini's free limit was reached for now — wait a minute and try again.";
+  if (e.status === 0) return e.message;
+  return `Gemini error${e.status ? ` (${e.status})` : ""}: ${e.message}`;
 }

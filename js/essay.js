@@ -1,19 +1,23 @@
-import { NARRATIVE, ARGUMENTATIVE, CHECKLISTS, QUICK_TAGS, PLANS } from "./prompts.js";
+import { CHECKLISTS, QUICK_TAGS, PLANS, ESSAY_CATS } from "./prompts.js";
 import { state, addEssay, deleteEssay, onChange, setSetting } from "./store.js";
 import { openScan, initScan } from "./scan.js";
 import { $, $$, shuffle, sample, escapeHtml, fmtClock, fmtDate, toast, chime, unlockAudio } from "./util.js";
 
-const TOTAL = 40 * 60;
-const ALERTS = [
-  { at: 35 * 60, msg: "35 minutes left — stop planning, start writing.", beeps: 1 },
-  { at: 10 * 60, msg: "10 minutes left — make sure you'll reach your last point.", beeps: 2 },
-  { at: 5 * 60, msg: "5 minutes left — start your conclusion.", beeps: 3 }
-];
 const TIMER_KEY = "studyhub:timer";
-const BANK = { narrative: NARRATIVE, argumentative: ARGUMENTATIVE };
 const LABEL = { narrative: "Narrative", argumentative: "Argumentative" };
+const catLabel = (e) => (e.cat && ESSAY_CATS[e.cat] ? ESSAY_CATS[e.cat].label : LABEL[e.type]);
 
-let chosenType = "narrative";
+// Alerts scale with the essay length: stop planning after ~1/8 of the time, then 10 and 5 minutes left.
+const totalOf = () => (session && session.total) || 40 * 60;
+function alerts() {
+  const T = totalOf(), plan = Math.max(120, Math.round(T / 8 / 60) * 60), out = [];
+  out.push({ at: T - plan, msg: `${Math.round((T - plan) / 60)} minutes left — stop planning, start writing.`, beeps: 1 });
+  if (T >= 20 * 60) out.push({ at: 600, msg: "10 minutes left — make sure you'll reach your last point.", beeps: 2 });
+  if (T >= 10 * 60) out.push({ at: 300, msg: "5 minutes left — start your conclusion.", beeps: 3 });
+  return out;
+}
+
+let chosenType = "personal";
 let session = null; // { type, prompt, endAt, remaining, running, fired: [] }
 let tickHandle = null;
 let wakeLock = null;
@@ -26,18 +30,22 @@ function show(name) {
 }
 
 // ── Prompts ──────────────────────────────────────────────────────────────────
-function freshPrompts(type, n) {
+function freshPrompts(cat, n) {
   const used = new Set(state.essays.map((e) => e.prompt));
-  const pool = BANK[type].filter((p) => !used.has(p));
-  return sample(pool.length >= n ? pool : BANK[type], n).map((prompt) => ({ type, prompt }));
+  const bank = ESSAY_CATS[cat].bank();
+  const pool = bank.filter((p) => !used.has(p));
+  return sample(pool.length >= n ? pool : bank, n).map((prompt) => ({ cat, type: ESSAY_CATS[cat].kind, prompt }));
+}
+// Surprise: one narrative-style and one argument-style prompt from random categories.
+function surprisePair() {
+  const narr = shuffle(["personal", "challenge"])[0], arg = shuffle(["opinion", "current"])[0];
+  return shuffle([...freshPrompts(narr, 1), ...freshPrompts(arg, 1)]);
 }
 function dealPrompts() {
-  const pair = chosenType === "surprise"
-    ? shuffle([...freshPrompts("narrative", 1), ...freshPrompts("argumentative", 1)])
-    : freshPrompts(chosenType, 2);
+  const pair = chosenType === "surprise" ? surprisePair() : freshPrompts(chosenType, 2);
   $("#promptCards").innerHTML = pair.map((p, i) => `
     <button class="card prompt-card" data-i="${i}">
-      <span class="badge ${p.type === "argumentative" ? "arg" : ""}">${LABEL[p.type]}</span>
+      <span class="badge ${p.type === "argumentative" ? "arg" : ""}">${ESSAY_CATS[p.cat].label}</span>
       <span>${escapeHtml(p.prompt)}</span>
       <span class="go">Choose this prompt →</span>
     </button>`).join("");
@@ -54,23 +62,51 @@ function save() {
   try { session ? localStorage.setItem(TIMER_KEY, JSON.stringify(session)) : localStorage.removeItem(TIMER_KEY); } catch { /* ignore */ }
 }
 function remaining() {
-  if (!session) return TOTAL;
+  if (!session) return totalOf();
   return session.running ? (session.endAt - Date.now()) / 1000 : session.remaining;
 }
 
-function startSession({ type, prompt }) {
-  session = { type, prompt, remaining: TOTAL, running: false, endAt: 0, fired: [] };
+function startSession({ type, cat, prompt }, extra = {}) {
+  const total = (Number($("#essayMinutes").value) || Number(state.settings.essayMinutes) || 40) * 60;
+  let next = extra.next;
+  if (next === undefined && $("#backToBack").checked) {
+    // Second essay: the other style, from a random category.
+    const other = type === "narrative" ? shuffle(["opinion", "current"])[0] : shuffle(["personal", "challenge"])[0];
+    next = freshPrompts(other, 1)[0];
+  }
+  session = { type, cat, prompt, total, remaining: total, running: false, endAt: 0, fired: [], next: next || null, part: extra.part || 1, typed: "" };
+  $("#typeAlong").value = "";
+  updateTypeCount();
   openTimer();
   toggleRun(); // start straight away
 }
 
+// Used by the full mock test: a surprise prompt at the chosen length.
+export function startSurpriseEssay() {
+  location.hash = "#essay";
+  const [p] = surprisePair();
+  startSession(p);
+  toast(`Essay section: ${Math.round(session.total / 60)} minutes. Write on paper.`, 4000);
+}
+
+function updateTypeCount() {
+  const txt = $("#typeAlong").value;
+  const n = (txt.match(/[A-Za-z’'-]+/g) || []).length;
+  $("#typeCount").textContent = `${n} word${n === 1 ? "" : "s"}`;
+  const mins = session ? (totalOf() - Math.max(0, remaining())) / 60 : 0;
+  $("#typePace").textContent = n && mins > 0.5 ? `${Math.round(n / mins)} words per minute · on pace for about ${Math.round((n / mins) * totalOf() / 60)} words` : "pace appears after a minute";
+  if (session) session.typed = txt;
+}
+
 function openTimer() {
-  $("#timerType").textContent = LABEL[session.type];
+  $("#timerType").textContent = (session.cat ? ESSAY_CATS[session.cat].label : LABEL[session.type]) + (session.next || session.part > 1 ? ` · essay ${session.part} of 2` : "");
   $("#timerType").className = "badge" + (session.type === "argumentative" ? " arg" : "");
   $("#timerPrompt").textContent = session.prompt;
   $("#timerAlert").hidden = true;
   $("#planPanel").hidden = true;
   $("#planPanel").innerHTML = planHtml(session.type);
+  $("#typeAlong").value = session.typed || "";
+  updateTypeCount();
   show("timer");
   clearInterval(tickHandle);
   tickHandle = setInterval(tick, 250);
@@ -101,13 +137,15 @@ function tick() {
   clock.classList.toggle("paused", !session.running && left > 0);
   clock.classList.toggle("warn", left <= 300 && left > 0);
   clock.classList.toggle("end", left <= 0);
-  $("#timerBar").style.width = `${((TOTAL - left) / TOTAL) * 100}%`;
-  $("#timerPhase").textContent = left > ALERTS[0].at ? "Plan" : left > 300 ? "Write" : left > 0 ? "Conclude" : "Time!";
-  $("#pauseBtn").textContent = session.running ? "Pause" : left === TOTAL ? "Start timer" : "Resume";
+  const T = totalOf(), AL = alerts();
+  $("#timerBar").style.width = `${((T - left) / T) * 100}%`;
+  $("#timerPhase").textContent = left > AL[0].at ? "Plan" : left > Math.min(300, T / 8) ? "Write" : left > 0 ? "Conclude" : "Time!";
+  $("#pauseBtn").textContent = session.running ? "Pause" : left === T ? "Start timer" : "Resume";
+  if (session.running && Math.round(left) % 15 === 0) updateTypeCount();
   document.title = session.running ? `${fmtClock(left)} · Study Hub` : "Study Hub";
 
   // Fire only the most recent alert we've crossed (if the tab slept, don't stack them up).
-  const due = ALERTS.filter((a) => left <= a.at && !session.fired.includes(a.at));
+  const due = AL.filter((a) => left <= a.at && !session.fired.includes(a.at));
   if (due.length) {
     due.forEach((a) => session.fired.push(a.at));
     const a = due[due.length - 1];
@@ -197,7 +235,7 @@ function openCheck() {
   if (!session) return;
   endTimer();
   const items = CHECKLISTS[session.type];
-  $("#checkPrompt").textContent = `${LABEL[session.type]}: ${session.prompt}`;
+  $("#checkPrompt").textContent = `${session.cat ? ESSAY_CATS[session.cat].label : LABEL[session.type]}: ${session.prompt}`;
   $("#checkTitle").textContent = `${LABEL[session.type]} checklist`;
   $("#checklist").innerHTML = items.map((t, i) => {
     const [head, rest] = t.split(" — ");
@@ -216,14 +254,22 @@ function updateScore() {
 function saveEssay(scanAfter = false) {
   const checks = $$("#checklist input").map((c) => c.checked);
   const tags = $$("#quickTags .tag[aria-pressed='true']").map((t) => t.textContent);
-  const used = Math.round((TOTAL - Math.max(0, remaining())) / 60);
+  const used = Math.round((totalOf() - Math.max(0, remaining())) / 60);
+  const typed = (session.typed || "").trim();
   const entry = addEssay({
-    type: session.type, prompt: session.prompt,
+    type: session.type, cat: session.cat || null, prompt: session.prompt,
     score: checks.filter(Boolean).length, max: checks.length, checks,
-    tags, notes: $("#essayNotes").value.trim(), minutesUsed: used
+    tags, notes: $("#essayNotes").value.trim(), minutesUsed: used, timeLimit: Math.round(totalOf() / 60),
+    ...(typed ? { transcript: typed, words: (typed.match(/[A-Za-z’'-]+/g) || []).length } : {})
   });
+  const nextUp = session.next, part = session.part;
   session = null; save();
   $("#promptChoice").hidden = true;
+  if (nextUp && !scanAfter) {
+    toast("Saved ✓ Essay 2 of 2 starts now — new prompt!", 4000);
+    startSession(nextUp, { next: null, part: part + 1 });
+    return;
+  }
   if (scanAfter) { openScan(entry.id, () => show("setup")); show("scan"); toast("Saved ✓ Now scan your pages."); return; }
   show("setup");
   toast("Essay saved to your log ✓");
@@ -241,7 +287,7 @@ function renderHistory() {
     const items = CHECKLISTS[e.type] || [];
     return `<details class="card entry">
       <summary>
-        <span class="meta"><span class="badge ${e.type === "argumentative" ? "arg" : ""}">${LABEL[e.type]}</span>${fmtDate(e.date)}${e.minutesUsed != null ? ` · ${e.minutesUsed} min` : ""}</span>
+        <span class="meta"><span class="badge ${e.type === "argumentative" ? "arg" : ""}">${escapeHtml(catLabel(e))}</span>${fmtDate(e.date)}${e.minutesUsed != null ? ` · ${e.minutesUsed}${e.timeLimit ? `/${e.timeLimit}` : ""} min` : ""}${e.words ? ` · ${e.words} words` : ""}</span>
         <span class="score" title="${e.feedback ? "Tutor score" : "Checklist score"}">${e.score != null ? `${e.score}/${e.max}` : e.feedback ? `${e.feedback.total}/${e.feedback.max}` : "—"}</span>
         <span class="ptext">${escapeHtml(e.prompt)}</span>
       </summary>
@@ -267,6 +313,9 @@ export function initEssay() {
     $$("[data-etype]").forEach((x) => x.setAttribute("aria-checked", String(x === b)));
   }));
   $("#essayStartBtn").addEventListener("click", dealPrompts);
+  $("#essayMinutes").value = String(state.settings.essayMinutes || 40);
+  $("#essayMinutes").addEventListener("change", (e) => setSetting("essayMinutes", Number(e.target.value)));
+  $("#typeAlong").addEventListener("input", updateTypeCount);
   $("#rerollBtn").addEventListener("click", dealPrompts);
   $("#pauseBtn").addEventListener("click", toggleRun);
   $("#fsBtn").addEventListener("click", () => (inFocus() ? exitFocus() : enterFocus()));
@@ -312,7 +361,7 @@ export function initEssay() {
     if (e.key.toLowerCase() === "f") inFocus() ? exitFocus() : enterFocus();
   });
 
-  onChange(() => { if (!$("#essaySetup").hidden) renderHistory(); syncSoundBtn(); });
+  onChange(() => { if (!$("#essaySetup").hidden) renderHistory(); syncSoundBtn(); if (document.activeElement !== $("#essayMinutes")) $("#essayMinutes").value = String(state.settings.essayMinutes || 40); });
   window.addEventListener("viewchange", (e) => e.detail === "essay" && !$("#essaySetup").hidden && renderHistory());
 
   // Resume a timer that was running before a refresh.

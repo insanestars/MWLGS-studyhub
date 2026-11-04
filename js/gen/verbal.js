@@ -61,7 +61,7 @@ export function sentenceCompletion() {
 
 // ── Verbal classification (CogAT style) ──────────────────────────────────────
 // Three words share a category; pick the option that belongs with them.
-const CAT_NAMES = Object.keys(CATEGORIES);
+const CAT_NAMES = Object.keys(CATEGORIES).filter((n) => CATEGORIES[n].words.length >= 4); // need 3 shown + 1 answer
 export function verbalClassification() {
   return retry(() => {
     const cat = pick(CAT_NAMES);

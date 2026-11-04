@@ -1,31 +1,33 @@
 # Study Hub
 
-A study site for a high-school entrance exam: a **CogAT-style reasoning test** and a **40-minute handwritten essay** (personal narrative or argumentative). You write the essay on paper, then scan it for transcription and tutor feedback.
+A study site for the **Maggie L. Walker Governor's School (MLWGS) admissions test**: timed reasoning sections, **no-calculator math**, reading comprehension, vocabulary, and timed essays on surprise topics. You write essays on paper, then scan them for transcription and tutor feedback.
 
 **Live site:** https://insanestars.github.io/MWLGS-studyhub/
 
-Plain HTML, CSS and JavaScript with no build step. It works on phones and laptops and has a dark mode.
+Plain HTML, CSS and JavaScript with no build step. It works on phones and laptops, has a dark mode, can be installed as an app, and works offline after the first visit (everything except the AI tutor).
 
 ## What's inside
 
 | Section | Features |
 |---|---|
-| **Home** | Exam-day countdown · daily question goal ring · quick starts · your 3 weakest question types with one-tap practice · word of the day · this week's activity · exam tips |
-| **Reasoning (CogAT-style)** | 14 question types, generated fresh every time at 3 levels (Warm-up, **Grade 9–10**, Challenge), all with 5 options (A–E) like the real test. **Verbal:** analogies (16 relationship types, ~300 word pairs with tricky lures), sentence completion (70 items, incl. two-blank), verbal classification, odd one out. **Quantitative:** number analogies (each checked so only one rule fits), number puzzles (equations, symbol chains, two-symbol systems), number series (15 rule families), letter series, grade 9–10 math (algebra, systems, percents, exponents, Pythagoras, circles, probability, slope, functions, statistics, inequalities…). **Nonverbal (SVG):** figure matrices (2×2 transformations, 3×3 Latin squares, rotations and line overlays), paper folding (real fold simulation, 1–3 folds), figure classification, figure balancing on scales, shape sequences. **Modes:** timed mix · **mock CogAT** (9 timed subtests, skip/back within a section, no feedback until the end, battery breakdown) · untimed practice · review mistakes · flagged questions · "How to solve" strategies for every type, plus a 💡 hint button |
-| **Essay** | 52 narrative + 65 formal, debate-style argumentative prompts (grade 9–10) · Narrative / Argumentative / Surprise me · pick 1 of 2 · big 40-min countdown, full-screen mode, alerts at 35/10/5 min with sound toggle · planning guide during the timer · self-check checklist · essay log · **scanner:** take photos or upload images/PDF, scan/B&W clean-up, rotate and reorder pages, **download as PDF** · **transcription:** AI tutor (reads handwriting) or free on-device text reader · **feedback:** AI tutor (rubric scores, strengths, improvements, line edits, vocabulary upgrades, a rewritten passage, follow-up chat) or the free instant quick check · writing toolkit |
-| **Vocab** | 143 grade 9–10 words · spaced-repetition flashcards · quizzes both ways · searchable list with mastery |
-| **Progress** | Daily streak · 12-week activity grid · reasoning score and speed charts · CogAT battery accuracy · accuracy by question type · essays by type · average checklist and tutor scores · words mastered · export/import backup |
+| **Home** | Exam countdown · daily question goal · quick starts · weakest topics with one-tap practice · word of the day · this week's activity |
+| **Practice** | 21 question types in 5 sections, generated fresh every time (no fixed lists to run out of), at Warm-up / Exam / Challenge level. **Verbal:** analogies (25 relationship types, 438 word pairs), sentence completion (110), vocabulary in context (built from 644 example sentences), classification (68 categories), odd one out. **Reading:** 24 original passages (civics, world history, science, biography, economics, fiction, poetry, opinion) with 120 questions on main idea, details, inference, vocab in context, tone and purpose; the passage stays on screen beside its questions. **Math (no calculator), every answer with step-by-step working:** arithmetic, fractions/decimals/percents, ratios & proportions, word problems, Algebra I (equations, inequalities, slope, systems, exponents, factoring, functions), geometry. **Quantitative:** number analogies, number puzzles, number series, letter series. **Nonverbal (SVG):** figure matrices, paper folding, figure classification, figure balancing, shape sequences |
+| **Timed modes** | ⏱ Timed drill for every section (5–30 questions, relaxed/exam/fast pace) · 🏁 **Full mock test** (5 timed sections → timed surprise essay) · 📝 CogAT-style test (9 subtests, real length 176 questions / 90 min, or half / quarter) · ⚡ Speed sprint (3/5/10 min) · custom timed drill |
+| **Mistakes** | Every missed question is saved; redo by topic, by section, or all; a question leaves the list once you get it right · 🚩 flag questions · 💡 “How to solve” strategy for every type |
+| **Essay** | 192 prompts: personal narrative, describe a challenge, opinion/argument, current events, surprise · timer of 15–60 min with alerts that scale to the length · two essays back to back · full-screen timer · planning guide · type-along word counter with pace · self-check checklist · essay log · **scanner** (photo/PDF, clean-up filters, PDF export) · **AI tutor** transcription + rubric feedback + chat (Gemini or Claude) or the free instant quick check · writing toolkit |
+| **Vocab** | 644 words in 14 categories (incl. “cool words”) with definitions and example sentences · 134 Greek/Latin roots, prefixes and suffixes · spaced-repetition flashcards (missed words come back a few cards later and again the same day) · quizzes weighted toward your weak words (meaning, word, fill-in-the-blank, roots) · 60-second blitz · weak-words filter · searchable list |
+| **Progress** | Saved in the browser (and synced if you sign in) · streak · score and speed over time · accuracy by section and by topic · weakest topics · reading-skill accuracy · essays, checklist and tutor averages · vocabulary mastered · backup export/import |
 
-Keyboard shortcuts: **Space** pauses/resumes the essay timer and **F** toggles full screen. In reasoning, **1–5** (or A–E) answers, **Enter** moves on and **F** flags a question.
+Keyboard: **Space** pauses the essay timer, **F** toggles full screen; in practice, **1–5** (or A–E) answers, **Enter** moves on, **F** flags.
 
 ## AI tutor (optional)
 
-The tutor uses Claude (`claude-opus-5-5`) through the official Anthropic SDK, straight from your browser:
+The tutor reads handwriting (photos or PDF), scores essays against a rubric, suggests line edits and vocabulary, rewrites one passage, and answers follow-up questions. Choose either provider in **👤 → AI tutor**:
 
-1. Create an API key at <https://console.anthropic.com/settings/keys> (needs a payment method; an essay costs roughly 5–15¢ for transcription + feedback).
-2. On the site, open **👤 → AI tutor**, paste the key and click **Save key**.
+- **Gemini** (free tier available): create a key at <https://aistudio.google.com/apikey>. The site tries `gemini-flash-latest`, then `gemini-3.5-flash`, `gemini-3.8-flash` and `gemini-flash-lite-latest` if a model is busy or unavailable.
+- **Claude**: create a key at <https://console.anthropic.com/settings/keys> (about 5–15¢ per essay). Uses `claude-opus-5-5` through the official Anthropic SDK, with server-side fallback enabled.
 
-The key is stored **only in that browser** (not in the code, the repo or Firestore). Add it on each device you use. Server-side fallback is enabled, so if a request is declined the API retries it on a fallback model automatically. Without a key, everything else still works: the free text reader and the instant quick check run on your device.
+Keys are stored **only in that browser** — never in the code, the repo or Firestore. Add a key on each device you use. **Never paste a key into the code or commit it:** this repository is public. For extra safety, restrict a Gemini key to the website `insanestars.github.io` (Google Cloud console → APIs & Services → Credentials → the key → *Website restrictions*). Without a key, everything else still works.
 
 ## Firebase setup (Google sign-in + cloud sync)
 
@@ -90,12 +92,12 @@ The workflow in `.github/workflows/pages.yml` runs the puzzle tests and publishe
 
 ```bash
 python3 -m http.server 8000      # then open http://localhost:8000
-node tests/puzzles.test.js       # thousands of puzzles: every type × 3 levels checked for validity
+node tests/puzzles.test.js       # thousands of questions: all 21 types × 3 levels, plus every content bank
 node tests/writing.test.js       # quick-check essay analysis
-node tests/ui.test.js            # full browser test, laptop + phone (needs Playwright)
+node tests/ui.test.js            # full browser test, laptop + phone + offline (needs Playwright)
 ```
 
-The AI-tutor test runs the real Anthropic SDK against a fake API (no key needed):
+The AI-tutor test runs the real Anthropic SDK and the Gemini REST calls against fake APIs (no keys needed):
 
 ```bash
 SDK_BUNDLE=path/to/sdk.mjs JSPDF=node_modules/jspdf/dist/jspdf.umd.min.js node tests/tutor.test.js
@@ -135,13 +137,15 @@ js/essay.js              prompt picker, 40-min timer, self-check, log
 js/scan.js               scanner, PDF export, transcription, feedback screen
 js/tutor.js              AI tutor (Claude via the Anthropic SDK)
 js/writing.js            free instant essay quick check
-js/puzzles.js            registry of question types, CogAT batteries, mock tests
-js/gen/*.js              generators: verbal, quant, math, figures, folding, balance (+ draw.js SVG kit)
-js/data/*.js             word relationships, categories, vocabulary, sentence bank
+js/puzzles.js            registry of question types, sections, CogAT test, full mock test
+js/gemini.js             Gemini provider for the AI tutor
+js/gen/*.js              generators: verbal, quant, math (mathkit/math-a/math-b), reading, figures, folding, balance, draw.js
+js/data/*.js             vocabulary (vocab-a..d), roots, reading passages, word relationships, sentence bank
+sw.js, manifest.webmanifest, icons/   offline support / installable app
 js/render.js             draws questions and options
 js/learn.js              "How to solve" strategies
-js/reasoning.js          timed / mock / practice / review / flagged modes
-js/vocab.js              flashcards, quiz, word list
+js/reasoning.js          practice, timed drills, full mock, CogAT test, sprint, mistakes, flagged
+js/vocab.js              flashcards, quizzes, blitz, roots, word list
 js/progress.js           streak, charts, activity grid
 firestore.rules          database security rules
 ```

@@ -4,3 +4,4 @@ test-results/
 *.png
 package-lock.json
 *-debug.log
+!icons/*.png
